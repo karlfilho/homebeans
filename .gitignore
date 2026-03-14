@@ -25,6 +25,9 @@ coverage.xml
 # Environment
 .env
 
+# Ledger data (user-specific)
+data/*.yaml
+
 # IDE
 .idea/
 .vscode/
