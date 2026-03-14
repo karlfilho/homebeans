@@ -1,0 +1,38 @@
+[project]
+name = "minha-financa"
+version = "0.1.0"
+description = "Sistema de Contabilidade de Partida Dobrada inspirado no hledger"
+readme = "README.md"
+authors = [
+    { name = "Karl Filho", email = "karlfilho@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+    "ruamel.yaml>=0.18",
+    "typer>=0.12",
+    "rich>=13.0",
+    "plotly>=5.0",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+minha-financa = "minha_financa.cli:app"
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/minha_financa"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
