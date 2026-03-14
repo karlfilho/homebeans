@@ -4,7 +4,7 @@ from pathlib import Path
 
 from ruamel.yaml import YAML
 
-from minha_financa.models import Transaction
+from homebeans.models import Transaction
 
 
 def _transaction_to_dict(t: Transaction) -> dict:

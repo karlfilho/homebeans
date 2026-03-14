@@ -27,6 +27,8 @@ coverage.xml
 
 # Ledger data (user-specific)
 data/*.yaml
+data/*.html
+balance*.html
 
 # IDE
 .idea/

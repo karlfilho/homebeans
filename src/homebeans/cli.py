@@ -7,14 +7,14 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 
-from minha_financa.models import Posting, Transaction
-from minha_financa.reports import balance_report
-from minha_financa.storage import load_ledger, save_ledger
+from homebeans.models import Posting, Transaction
+from homebeans.reports import balance_report
+from homebeans.storage import load_ledger, save_ledger
 
 load_dotenv()
 
 app = typer.Typer(
-    name="minha-financa",
+    name="homebeans",
     help="Sistema de Contabilidade de Partida Dobrada inspirado no hledger.",
 )
 console = Console()
@@ -119,9 +119,7 @@ def chart(
     ),
 ) -> None:
     """Gera gráfico de saldo por conta (HTML)."""
-    from decimal import Decimal
-
-    from minha_financa.viz import export_balance_chart
+    from homebeans.viz import export_balance_chart
 
     ledger_path = _get_ledger_path()
     transactions = load_ledger(ledger_path)

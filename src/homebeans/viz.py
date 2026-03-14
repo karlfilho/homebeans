@@ -3,7 +3,8 @@
 from pathlib import Path
 
 import plotly.graph_objects as go
-from minha_financa.reports import balance_by_account
+
+from homebeans.reports import balance_by_account
 
 
 def export_balance_chart(

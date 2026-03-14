@@ -3,7 +3,7 @@
 from datetime import date
 from decimal import Decimal
 
-from minha_financa.models import Posting, Transaction
+from homebeans.models import Posting, Transaction
 
 
 def test_debits_equal_credits():

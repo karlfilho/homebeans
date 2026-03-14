@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from minha_financa.models import Posting, Transaction
+from homebeans.models import Posting, Transaction
 
 
 def test_transaction_balanced_accepted():

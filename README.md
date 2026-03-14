@@ -1,4 +1,4 @@
-# Minha Finança
+# HomeBeans
 
 Sistema de Contabilidade de Partida Dobrada em Python, inspirado no [hledger](https://hledger.org/).
 
@@ -18,8 +18,8 @@ Sistema de Contabilidade de Partida Dobrada em Python, inspirado no [hledger](ht
 ## Instalação
 
 ```bash
-git clone <seu-repo>
-cd finance
+git clone https://github.com/karlfilho/homebeans.git
+cd homebeans
 uv sync
 ```
 
@@ -28,7 +28,7 @@ uv sync
 ### Adicionar transação
 
 ```bash
-uv run minha-financa add --date 2024-01-15 --desc "Salário" "assets:bank:5000" "income:salary:-5000"
+uv run homebeans add --date 2024-01-15 --desc "Salário" "assets:bank:5000" "income:salary:-5000"
 ```
 
 Formato dos postings: `conta:valor` (positivo = débito, negativo = crédito).
@@ -36,19 +36,19 @@ Formato dos postings: `conta:valor` (positivo = débito, negativo = crédito).
 ### Balanço
 
 ```bash
-uv run minha-financa balance
+uv run homebeans balance
 ```
 
 ### Relatório de transações
 
 ```bash
-uv run minha-financa report --limit 20
+uv run homebeans report --limit 20
 ```
 
 ### Gráfico
 
 ```bash
-uv run minha-financa chart -o balance.html
+uv run homebeans chart -o balance.html
 ```
 
 ## Configuração
@@ -62,7 +62,7 @@ LEDGER_PATH=./data/ledger.yaml
 ## Estrutura
 
 ```
-src/minha_financa/
+src/homebeans/
 ├── models.py    # Transaction, Posting (Pydantic)
 ├── storage.py   # Persistência YAML
 ├── reports.py   # Relatórios e balanços

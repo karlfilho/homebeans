@@ -3,7 +3,7 @@
 from collections import defaultdict
 from decimal import Decimal
 
-from minha_financa.models import Transaction
+from homebeans.models import Transaction
 
 
 def balance_by_account(transactions: list[Transaction]) -> dict[str, Decimal]:

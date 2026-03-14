@@ -1,5 +1,5 @@
 [project]
-name = "minha-financa"
+name = "homebeans"
 version = "0.1.0"
 description = "Sistema de Contabilidade de Partida Dobrada inspirado no hledger"
 readme = "README.md"
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-minha-financa = "minha_financa.cli:app"
+homebeans = "homebeans.cli:app"
 
 [tool.uv]
 package = true
@@ -32,7 +32,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/minha_financa"]
+packages = ["src/homebeans"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
