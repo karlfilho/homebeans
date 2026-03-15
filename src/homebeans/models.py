@@ -9,7 +9,7 @@ Convenção de sinais:
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class Posting(BaseModel):
@@ -17,6 +17,7 @@ class Posting(BaseModel):
 
     account: str
     amount: Decimal
+    tags: list[str] = Field(default_factory=list)
 
     @field_validator("account")
     @classmethod
@@ -31,6 +32,16 @@ class Posting(BaseModel):
         if v == 0:
             raise ValueError("Valor do lançamento não pode ser zero")
         return v
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, v: list[str]) -> list[str]:
+        cleaned = []
+        for tag in v:
+            tag = tag.strip()
+            if tag:
+                cleaned.append(tag)
+        return cleaned
 
 
 class Transaction(BaseModel):

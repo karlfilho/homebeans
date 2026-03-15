@@ -13,7 +13,11 @@ def _transaction_to_dict(t: Transaction) -> dict:
         "date": str(t.date),
         "description": t.description,
         "postings": [
-            {"account": p.account, "amount": str(p.amount)}
+            {
+                "account": p.account,
+                "amount": str(p.amount),
+                "tags": p.tags or [],
+            }
             for p in t.postings
         ],
     }
@@ -25,7 +29,11 @@ def _dict_to_transaction(d: dict) -> Transaction:
         date=d["date"],
         description=d["description"],
         postings=[
-            {"account": p["account"], "amount": p["amount"]}
+            {
+                "account": p["account"],
+                "amount": p["amount"],
+                "tags": p.get("tags", []),
+            }
             for p in d["postings"]
         ],
     )
