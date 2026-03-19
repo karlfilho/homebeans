@@ -282,3 +282,22 @@ def generate_html_report(output_filename: str = "balance_chart.html") -> str:
     except Exception as e:
         return f"Erro ao gerar gráfico: {e}"
 
+@mcp.tool()
+def clear_journal(confirmation: str) -> str:
+    """
+    Apaga todas as transações do livro-razão (journal) atual.
+    ATENÇÃO: Operação irreversível. A IA deve informar o usuário das consequências.
+    Para confirmar a operação, o argumento 'confirmation' deve ser "CONFIRMO_LIMPEZA_TOTAL".
+    """
+    if confirmation != "CONFIRMO_LIMPEZA_TOTAL":
+        return "Erro: Limpeza cancelada. Você deve passar a string exata 'CONFIRMO_LIMPEZA_TOTAL'."
+        
+    ledger_path = _get_ledger_path()
+    try:
+        _ = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao acessar o arquivo YAML do ledger: {e}"
+
+    save_ledger(ledger_path, [])
+    return "Journal limpo com sucesso! Nenhuma transação restou no arquivo."
+
