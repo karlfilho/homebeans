@@ -68,12 +68,19 @@ def add_transaction(date_str: str, description: str, postings: list[dict[str, An
     """
     Adiciona uma nova transação financeira ao ledger Homebeans.
     
+    REGRA DE NEGÓCIO - PARTIDA DOBRADA (REQUISITO CRÍTICO):
+    1. A soma matemática de todos os 'amount' nos postings DEVE ser exatamente zero.
+    2. Valores positivos representam DÉBITOS (aumento de ativos/despesas).
+    3. Valores negativos representam CRÉDITOS (aumento de passivos/receitas, ou redução de ativos).
+    4. Se o usuário disser apenas "Comprei pão por R$ 10", ELE FORNECEU APENAS UMA PERNA DA TRANSAÇÃO. 
+       Você TEM a obrigação de perguntar proativamente: "De qual conta esse dinheiro saiu?"
+       ANTES de tentar chamar esta ferramenta. Não adivinhe a conta de origem/destino sem ter certeza.
+    5. Quando for realizar o lançamento, explique sua lógica: "Vou debitar 10.00 de despesas:padaria e creditar -10.00 de ativos:carteira".
+    
     Args:
         date_str (str): A data da transação no formato YYYY-MM-DD.
-        description (str): Descrição clara e concisa (ex: Compra de teclado novo).
-        postings (list[dict]): Lista de dicionários representando os lançamentos por partida dobrada.
-                               Ex: [{"account": "assets:bank", "amount": "-150.00"}, 
-                                    {"account": "despesas:equipamento", "amount": "150.00"}]
+        description (str): Descrição curta e objetiva.
+        postings (list[dict]): A lista balanceada de lançamentos.
     """
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -187,8 +194,13 @@ def edit_transaction(
 ) -> str:
     """
     Edita uma transação existente no ledger. Localiza a transação pela data e descrição originais.
-    Apenas passe os campos 'new_...' que você deseja alterar. Para atualizar contas ou valores,
-    você deve fornecer o array inteiro de 'new_postings'.
+    Apenas passe os campos 'new_...' que você deseja alterar.
+    
+    REGRA DE NEGÓCIO - PARTIDA DOBRADA (REQUISITO CRÍTICO):
+    Se for alterar os postings (para corrigir um valor, por exemplo), você deve fornecer a lista 
+    INTEIRA balanceada novamente nos 'new_postings', cuja soma de valores seja 0.
+    Se o usuário pedir "agora o mercado foi R$ 60 em vez de R$ 50", lembre-se de atualizar
+    a contrapartida (ex: o saldo negativo de ativos:banco) proporcionalmente e avise-o disso.
     """
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -300,4 +312,23 @@ def clear_journal(confirmation: str) -> str:
 
     save_ledger(ledger_path, [])
     return "Journal limpo com sucesso! Nenhuma transação restou no arquivo."
+
+@mcp.prompt()
+def homebeans_guide() -> str:
+    """
+    Prompt embutido para guiar o assistente fiscal na lógica do Homebeans app (Partida Dobrada).
+    """
+    return (
+        "Você é o assistente financeiro do HomeBeans, um sistema de contabilidade em Python baseado em texto (YAML). "
+        "Sua principal regra inquebrável é: Partida Dobrada (Double-Entry Bookkeeping). "
+        "Não existe dinheiro que surge ou some. Todo registro de despesa (positivo) EXIGE "
+        "uma redução de ativo equivalente (negativo) na mesma transação. A soma dos lançamentos (postings) "
+        "de uma transação será sempre igual a zero. \n\n"
+        "Comandos Básicos de Contas:\n"
+        "- Ativos (Dinheiro, Bancos) crescem com débitos (positivo) e reduzem com créditos (negativo).\n"
+        "- Despesas crescem com débitos (positivo).\n"
+        "- Receitas e Passivos (Dívidas) crescem com créditos (negativos).\n\n"
+        "Sempre comunique o usuário detalhadamente o que vai contabilizar. Exemplo: "
+        "'Ok, vou adicionar uma transação tirando R$ 50 da conta ativos:banco:itau e colocar na conta despesas:alimentacao'."
+    )
 
