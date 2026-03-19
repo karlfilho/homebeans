@@ -10,6 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from homebeans.models import Posting, Transaction
 from homebeans.reports import balance_report
 from homebeans.storage import load_ledger, save_ledger
+from core.suggester import extract_all_accounts
 
 load_dotenv()
 
@@ -114,3 +115,25 @@ def add_transaction(date_str: str, description: str, postings: list[dict[str, An
     transactions.append(t)
     save_ledger(ledger_path, transactions)
     return f"Transação adicionada com sucesso em {date_str} - {description}."
+
+@mcp.tool()
+def get_accounts_tree() -> str:
+    """Retorna a lista completa das contas contábeis organizadas por hierarquia atualmente em uso no HomeBeans."""
+    ledger_path = _get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    if not transactions:
+        return "Nenhuma conta encontrada no ledger vazio."
+
+    accounts = extract_all_accounts(transactions)
+    if not accounts:
+        return "Nenhuma conta foi utilizada ainda."
+
+    output = ["Contas Financeiras Em Uso:"]
+    for acc in accounts:
+        output.append(f"- {acc}")
+    return "\n".join(output)
+
