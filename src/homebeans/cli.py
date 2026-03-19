@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.table import Table
+from rich.tree import Tree
 
 from core.suggester import extract_all_accounts, suggest_for_description
 from homebeans.models import Posting, Transaction
@@ -28,6 +29,131 @@ def _get_ledger_path() -> Path:
     import os
     path = os.getenv("LEDGER_PATH", "./data/ledger.yaml")
     return Path(path)
+
+
+def _account_type(account: str) -> str:
+    root = account.split(":", 1)[0].strip().lower()
+    if root in {"assets", "ativos"}:
+        return "ativos"
+    if root in {"liabilities", "passivos"}:
+        return "passivos"
+    if root in {"expenses", "despesas"}:
+        return "despesas"
+    if root in {"income", "receita", "receitas"}:
+        return "receita"
+    return "outras"
+
+
+def _build_account_tree(accounts: list[str]) -> Tree:
+    root = Tree("Contas", guide_style="dim")
+    nodes: dict[tuple[str, ...], Tree] = {(): root}
+    for acc in accounts:
+        parts = [p for p in acc.split(":") if p]
+        path: tuple[str, ...] = ()
+        for part in parts:
+            parent = nodes[path]
+            path = (*path, part)
+            if path not in nodes:
+                nodes[path] = parent.add(part)
+    return root
+
+
+@app.command("journal-clear")
+def journal_clear() -> None:
+    """Limpa o journal (remove todas as transações) com confirmação."""
+    ledger_path = _get_ledger_path()
+    console.print(
+        Panel(
+            "[bold red]ATENÇÃO[/bold red]\n"
+            "Isso vai remover TODAS as transações do journal.",
+            border_style="red",
+            title="Limpar journal",
+        )
+    )
+    if not Confirm.ask("Tem certeza que deseja continuar?", default=False):
+        console.print("[yellow]Operação cancelada.[/yellow]")
+        raise typer.Exit(0)
+
+    # Valida se o journal atual é carregável antes de sobrescrever.
+    try:
+        _ = load_ledger(ledger_path)
+    except Exception as e:
+        console.print("[red]Erro ao carregar o journal atual.[/red]")
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+
+    save_ledger(ledger_path, [])
+    console.print("[green]Journal limpo com sucesso.[/green]")
+
+
+@app.command()
+def accounts(
+    tree: bool = typer.Option(False, "--tree", help="Exibe hierarquia de contas"),
+    a: bool = typer.Option(False, "--a", help="Somente ativos"),
+    p: bool = typer.Option(False, "--p", help="Somente passivos"),
+    d: bool = typer.Option(False, "--d", help="Somente despesas"),
+    r: bool = typer.Option(False, "--r", help="Somente receita"),
+    o: bool = typer.Option(False, "--o", help="Somente outras"),
+) -> None:
+    """Lista contas em uso no journal, com filtros por tipo e opção em árvore."""
+    ledger_path = _get_ledger_path()
+    transactions = load_ledger(ledger_path)
+    all_accounts = extract_all_accounts(transactions)
+
+    by_type: dict[str, list[str]] = {
+        "ativos": [],
+        "passivos": [],
+        "despesas": [],
+        "receita": [],
+        "outras": [],
+    }
+    for acc in all_accounts:
+        by_type[_account_type(acc)].append(acc)
+
+    selected_types: list[str] = []
+    if a:
+        selected_types.append("ativos")
+    if p:
+        selected_types.append("passivos")
+    if d:
+        selected_types.append("despesas")
+    if r:
+        selected_types.append("receita")
+    if o:
+        selected_types.append("outras")
+    if not selected_types:
+        selected_types = ["ativos", "passivos", "despesas", "receita", "outras"]
+
+    if tree:
+        for t in selected_types:
+            accounts_list = by_type[t]
+            if not accounts_list:
+                continue
+            display_name = t.capitalize()
+            console.print(
+                Panel(
+                    _build_account_tree(accounts_list),
+                    title=display_name,
+                    title_align="left",
+                )
+            )
+        return
+
+    for t in selected_types:
+        accounts_list = by_type[t]
+        if not accounts_list:
+            continue
+        display_name = t.capitalize()
+        table = Table(
+            title=display_name,
+            title_justify="left",
+            show_header=False,
+            border_style="blue",
+        )
+        table.add_column("Conta", style="cyan")
+        for acc in accounts_list:
+            table.add_row(acc)
+        console.print(table)
 
 
 @app.command()
@@ -427,6 +553,15 @@ def chart(
     balances = {acc: float(bal) for acc, bal in report}
     export_balance_chart(balances, output)
     console.print(f"[green]Gráfico exportado para {output}[/green]")
+
+
+@app.command()
+def mcp() -> None:
+    """Inicia o servidor MCP via stdio."""
+    import sys
+    from homebeans.mcp_server import mcp as mcp_instance
+    print("Starting HomeBeans MCP Server...", file=sys.stderr)
+    mcp_instance.run()
 
 
 def main() -> None:

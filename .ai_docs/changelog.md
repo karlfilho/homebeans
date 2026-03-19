@@ -7,3 +7,8 @@
     - Validação em tempo real via modelos Pydantic (`Posting` e `Transaction`).
     - Loop de lançamentos até o saldo da transação ficar exatamente zero, exibindo quanto falta para zerar após cada inserção.
 
+- **[2026-03-15] Comandos de journal e contas + regra de sintaxe**
+  - Adicionado `homebeans journal-clear` para limpar o journal com confirmação antes de sobrescrever o YAML.
+  - Adicionado `homebeans accounts` para listar contas em uso por tipo, com filtros (`--a`, `--p`, `--d`, `--r`, `--o`) e visualização hierárquica (`--tree`).
+  - Reforçada validação de `Posting.account` para exigir a sintaxe `tipo:subconta(:subconta...)` (hierarquia por `:` e sem espaços).
+

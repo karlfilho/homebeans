@@ -2,7 +2,7 @@
 
 - **src/homebeans**
   - `__init__.py`: inicialização do pacote.
-  - `cli.py`: interface de linha de comando (Typer) com comandos `add`, `balance`, `report`, `chart`.
+  - `cli.py`: interface de linha de comando (Typer) com comandos `add`, `balance`, `report`, `chart`, `accounts`, `journal-clear`.
   - `models.py`: modelos Pydantic (`Posting`, `Transaction`) e validações de partida dobrada.
   - `reports.py`: geração de relatórios de balanço por conta.
   - `storage.py`: leitura e escrita do livro-razão YAML.

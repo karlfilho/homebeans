@@ -24,7 +24,23 @@ class Posting(BaseModel):
     def account_not_empty(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("Conta não pode ser vazia")
-        return v.strip()
+        v = v.strip()
+        if ":" not in v:
+            raise ValueError(
+                "Conta inválida: use a sintaxe tipo:subconta(:subconta...)"
+            )
+        parts = [p for p in v.split(":") if p.strip()]
+        if len(parts) < 2:
+            raise ValueError(
+                "Conta inválida: use a sintaxe tipo:subconta(:subconta...)"
+            )
+        # Garante que não existam espaços nos segmentos.
+        for seg in parts:
+            if any(ch.isspace() for ch in seg):
+                raise ValueError(
+                    "Conta inválida: não use espaços; separe níveis com ':'"
+                )
+        return v
 
     @field_validator("amount")
     @classmethod
