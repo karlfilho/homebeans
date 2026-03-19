@@ -68,19 +68,23 @@ def add_transaction(date_str: str, description: str, postings: list[dict[str, An
     """
     Adiciona uma nova transação financeira ao ledger Homebeans.
     
-    REGRA DE NEGÓCIO - PARTIDA DOBRADA (REQUISITO CRÍTICO):
+    REGRA DE NEGÓCIO - PARTIDA DOBRADA E NOMENCLATURA (REQUISITO CRÍTICO):
     1. A soma matemática de todos os 'amount' nos postings DEVE ser exatamente zero.
     2. Valores positivos representam DÉBITOS (aumento de ativos/despesas).
-    3. Valores negativos representam CRÉDITOS (aumento de passivos/receitas, ou redução de ativos).
-    4. Se o usuário disser apenas "Comprei pão por R$ 10", ELE FORNECEU APENAS UMA PERNA DA TRANSAÇÃO. 
+    3. Valores negativos representam CRÉDITOS (aumento de passivos/entradas, ou redução de ativos).
+    4. CADA CONTA OBRIGATORIAMENTE DEVE INICIAR COM UM DOS 5 PREFIXOS:
+       ativos, passivos, entradas, despesas, patrimônio. E a sintaxe deve ser "tipo:subtipo:detalhe".
+       Exemplo Correto: "despesas:transporte:combustivel" ou "ativos:bancos:itau".
+    5. TODAS AS TAGS OBRIGATORIAMENTE DEVEM SEGUIR O FORMATO CHAVE:VALOR. Ex: "veiculo:meteor" ou "categoria:fixa".
+    6. Se o usuário disser apenas "Comprei pão por R$ 10", ELE FORNECEU APENAS UMA PERNA DA TRANSAÇÃO. 
        Você TEM a obrigação de perguntar proativamente: "De qual conta esse dinheiro saiu?"
        ANTES de tentar chamar esta ferramenta. Não adivinhe a conta de origem/destino sem ter certeza.
-    5. Quando for realizar o lançamento, explique sua lógica: "Vou debitar 10.00 de despesas:padaria e creditar -10.00 de ativos:carteira".
+    7. Quando for realizar o lançamento, explique sua lógica: "Vou debitar 10.00 de despesas:padaria e creditar -10.00 de ativos:carteira com a tag 'tipo:alimentacao'".
     
     Args:
         date_str (str): A data da transação no formato YYYY-MM-DD.
         description (str): Descrição curta e objetiva.
-        postings (list[dict]): A lista balanceada de lançamentos.
+        postings (list[dict]): A lista balanceada de lançamentos. Ex: [{"account": "despesas:moradia:internet", "amount": "99.00", "tags": ["fornecedor:claro"]}]
     """
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -321,14 +325,16 @@ def homebeans_guide() -> str:
     return (
         "Você é o assistente financeiro do HomeBeans, um sistema de contabilidade em Python baseado em texto (YAML). "
         "Sua principal regra inquebrável é: Partida Dobrada (Double-Entry Bookkeeping). "
-        "Não existe dinheiro que surge ou some. Todo registro de despesa (positivo) EXIGE "
-        "uma redução de ativo equivalente (negativo) na mesma transação. A soma dos lançamentos (postings) "
-        "de uma transação será sempre igual a zero. \n\n"
-        "Comandos Básicos de Contas:\n"
+        "Soma dos lançamentos de uma transação DEVE ser sempre zero. \n\n"
+        "Comandos Básicos de Contas e Sintaxe OBRIGATÓRIA 'tipo:subtipo:detalhe':\n"
+        "- Somente 5 raízes são permitidas: ativos, passivos, entradas, despesas, patrimônio.\n"
         "- Ativos (Dinheiro, Bancos) crescem com débitos (positivo) e reduzem com créditos (negativo).\n"
         "- Despesas crescem com débitos (positivo).\n"
-        "- Receitas e Passivos (Dívidas) crescem com créditos (negativos).\n\n"
+        "- Entradas (Receitas) e Passivos (Dívidas) crescem com créditos (negativos).\n"
+        "- Patrimônio (Equity) representa o patrimônio líquido.\n\n"
+        "Regra OBRIGATÓRIA de Tags:\n"
+        "- Tags SEMPRE devem seguir o formato chave:valor (ex: 'veiculo:meteor 350', 'viagem:sp').\n\n"
         "Sempre comunique o usuário detalhadamente o que vai contabilizar. Exemplo: "
-        "'Ok, vou adicionar uma transação tirando R$ 50 da conta ativos:banco:itau e colocar na conta despesas:alimentacao'."
+        "'Ok, vou adicionar uma transação tirando R$ 50 da conta ativos:bancos:itau e colocar na conta despesas:moradia:internet com a tag operadora:claro'."
     )
 

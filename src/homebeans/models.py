@@ -32,8 +32,16 @@ class Posting(BaseModel):
         parts = [p for p in v.split(":") if p.strip()]
         if len(parts) < 2:
             raise ValueError(
-                "Conta inválida: use a sintaxe tipo:subconta(:subconta...)"
+                "Conta inválida: use a sintaxe tipo:subconta(:detalhe...)"
             )
+            
+        root = parts[0].lower()
+        valid_roots = {"ativos", "passivos", "entradas", "despesas", "patrimônio", "patrimonio"}
+        if root not in valid_roots:
+            raise ValueError(
+                f"Raiz da conta inválida ('{root}'). Deve iniciar obrigatoriamente com: ativos, passivos, entradas, despesas ou patrimônio."
+            )
+            
         # Garante que não existam espaços nos segmentos.
         for seg in parts:
             if any(ch.isspace() for ch in seg):
@@ -56,6 +64,10 @@ class Posting(BaseModel):
         for tag in v:
             tag = tag.strip()
             if tag:
+                if ":" not in tag:
+                    raise ValueError(
+                        f"Tag inválida ('{tag}'). Tags devem seguir obrigatoriamente a regra chave:valor (ex: veiculo:meteor)"
+                    )
                 cleaned.append(tag)
         return cleaned
 

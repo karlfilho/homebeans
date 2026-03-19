@@ -39,8 +39,10 @@ def _account_type(account: str) -> str:
         return "passivos"
     if root in {"expenses", "despesas"}:
         return "despesas"
-    if root in {"income", "receita", "receitas"}:
-        return "receita"
+    if root in {"income", "receita", "receitas", "entradas"}:
+        return "entradas"
+    if root in {"equity", "patrimonio", "patrimônio"}:
+        return "patrimônio"
     return "outras"
 
 
