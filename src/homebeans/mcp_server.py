@@ -252,3 +252,33 @@ def edit_transaction(
     save_ledger(ledger_path, transactions)
     return f"Transação editada com sucesso! Atualizada para: {valid_t.date} - {valid_t.description}."
 
+@mcp.tool()
+def generate_html_report(output_filename: str = "balance_chart.html") -> str:
+    """
+    Gera um gráfico interativo (HTML) do balanço financeiro atual e o salva no disco.
+    Retorna o caminho absoluto do arquivo para o usuário poder abrir no navegador.
+    """
+    import os
+    from homebeans.viz import export_balance_chart
+    
+    ledger_path = _get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    if not transactions:
+        return "Erro: Ledger está vazio, não há dados para gerar gráfico."
+
+    report = balance_report(transactions)
+    if not report:
+        return "Erro: Nenhuma conta possui saldo para gerar gráfico."
+
+    balances = {acc: float(bal) for acc, bal in report}
+    out_path = Path(os.getcwd()) / output_filename
+    try:
+        export_balance_chart(balances, out_path)
+        return f"Relatório gráfico gerado com sucesso! Arquivo salvo em: {out_path.absolute()}"
+    except Exception as e:
+        return f"Erro ao gerar gráfico: {e}"
+
