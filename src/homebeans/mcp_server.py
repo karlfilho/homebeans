@@ -177,3 +177,78 @@ def delete_transaction(date_str: str, description: str) -> str:
     save_ledger(ledger_path, transactions)
     return f"Transação '{deleted.description}' do dia {deleted.date} removida com sucesso."
 
+@mcp.tool()
+def edit_transaction(
+    date_str: str, 
+    description: str,
+    new_date_str: str | None = None,
+    new_description: str | None = None,
+    new_postings: list[dict[str, Any]] | None = None
+) -> str:
+    """
+    Edita uma transação existente no ledger. Localiza a transação pela data e descrição originais.
+    Apenas passe os campos 'new_...' que você deseja alterar. Para atualizar contas ou valores,
+    você deve fornecer o array inteiro de 'new_postings'.
+    """
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return "Erro: A data atual deve estar no formato YYYY-MM-DD."
+
+    new_dt = dt
+    if new_date_str:
+        try:
+            new_dt = datetime.strptime(new_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return "Erro: A nova data deve estar no formato YYYY-MM-DD."
+
+    ledger_path = _get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    if not transactions:
+        return "Erro: Ledger está vazio."
+
+    target_desc = description.strip().lower()
+    matching_idx = -1
+    for i, t in enumerate(transactions):
+        if t.date == dt and t.description.strip().lower() == target_desc:
+            matching_idx = i
+            break
+
+    if matching_idx == -1:
+        return f"Erro: Nenhuma transação encontrada na data {date_str} com a descrição '{description}'."
+
+    t_edit = transactions[matching_idx]
+    
+    final_desc = new_description if new_description else t_edit.description
+    final_postings = t_edit.postings
+
+    if new_postings is not None:
+        postings_list = []
+        for p_dict in new_postings:
+            if "account" not in p_dict or "amount" not in p_dict:
+                return "Erro: Cada posting deve conter 'account' e 'amount'."
+            try:
+                amt = Decimal(str(p_dict["amount"]))
+                posting = Posting(
+                    account=p_dict["account"], 
+                    amount=amt, 
+                    tags=p_dict.get("tags", [])
+                )
+                postings_list.append(posting)
+            except Exception as e:
+                return f"Erro na validação do novo posting {p_dict}: {e}"
+        final_postings = postings_list
+
+    try:
+        valid_t = Transaction(date=new_dt, description=final_desc, postings=final_postings)
+        transactions[matching_idx] = valid_t
+    except Exception as e:
+        return f"Erro de validação na nova transação (provavelmente o saldo não zera): {e}"
+
+    save_ledger(ledger_path, transactions)
+    return f"Transação editada com sucesso! Atualizada para: {valid_t.date} - {valid_t.description}."
+
