@@ -137,3 +137,43 @@ def get_accounts_tree() -> str:
         output.append(f"- {acc}")
     return "\n".join(output)
 
+@mcp.tool()
+def delete_transaction(date_str: str, description: str) -> str:
+    """
+    Remove uma transação específica do ledger baseando-se na data (YYYY-MM-DD) e descrição exata (case-insensitive).
+    Dica: use get_transactions primeiro para listar os registros recentes e obter a data e descrição corretas.
+    
+    Args:
+        date_str (str): A data exata da transação (ex: 2024-01-15).
+        description (str): A descrição da transação.
+    """
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return "Erro: Data deve estar no formato YYYY-MM-DD."
+
+    ledger_path = _get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    if not transactions:
+        return "Erro: Ledger está vazio."
+
+    target_desc = description.strip().lower()
+    matching_idx = -1
+    
+    # Busca a primeira transação que casa com data e descrição
+    for i, t in enumerate(transactions):
+        if t.date == dt and t.description.strip().lower() == target_desc:
+            matching_idx = i
+            break
+
+    if matching_idx == -1:
+        return f"Erro: Nenhuma transação encontrada no dia {date_str} com a descrição '{description}'."
+
+    deleted = transactions.pop(matching_idx)
+    save_ledger(ledger_path, transactions)
+    return f"Transação '{deleted.description}' do dia {deleted.date} removida com sucesso."
+
