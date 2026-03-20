@@ -34,6 +34,11 @@ class Posting(BaseModel):
             raise ValueError(
                 "Conta inválida: use a sintaxe tipo:subconta(:detalhe...)"
             )
+        if len(parts) > 3:
+            raise ValueError(
+                "Conta inválida: o limite máximo são 3 níveis (tipo:subconta:detalhe). "
+                "Se precisar de um 4º nível, transforme-o em uma tag (ex: veiculo:meteor)."
+            )
             
         root = parts[0].lower()
         valid_roots = {"ativos", "passivos", "entradas", "despesas", "patrimônio", "patrimonio"}

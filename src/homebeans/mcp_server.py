@@ -73,17 +73,21 @@ def add_transaction(date_str: str, description: str, postings: list[dict[str, An
     2. Valores positivos representam DÉBITOS (aumento de ativos/despesas).
     3. Valores negativos representam CRÉDITOS (aumento de passivos/entradas, ou redução de ativos).
     4. CADA CONTA OBRIGATORIAMENTE DEVE INICIAR COM UM DOS 5 PREFIXOS:
-       ativos, passivos, entradas, despesas, patrimônio. E a sintaxe deve ser "tipo:subtipo:detalhe".
-       Exemplo Correto: "despesas:transporte:combustivel" ou "ativos:bancos:itau".
-    5. TODAS AS TAGS OBRIGATORIAMENTE DEVEM SEGUIR O FORMATO CHAVE:VALOR. Ex: "veiculo:meteor" ou "categoria:fixa".
-    6. Se o usuário disser apenas "Comprei pão por R$ 10", ELE FORNECEU APENAS UMA PERNA DA TRANSAÇÃO. 
+       ativos, passivos, entradas, despesas, patrimônio.
+    5. CADA CONTA DEVE TER NO MÁXIMO 3 NÍVEIS (tipo:subtipo:detalhe). O 4º nível é estritamente proibido!
+       Exemplo Correto (3 níveis): "despesas:transporte:combustivel"
+       Exemplo Proibido (4 níveis): "despesas:transporte:veiculo:meteor" (O "meteor" deve virar uma tag).
+    6. TODAS AS TAGS OBRIGATORIAMENTE DEVEM SEGUIR O FORMATO CHAVE:VALOR. Ex: "veiculo:meteor" ou "categoria:fixa".
+       IMPORTANTE: VOCÊ DEVE PRIORIZAR O REUSO DE TAGS E CONTAS JÁ EXISTENTES PARA MANTER A CONSISTÊNCIA.
+       Use as ferramentas get_accounts_tree() e get_tags_list() para consultar as nomenclaturas do usuário antes de inventar novas.
+    7. Se o usuário disser apenas "Comprei pão por R$ 10", ELE FORNECEU APENAS UMA PERNA DA TRANSAÇÃO. 
        Você TEM a obrigação de perguntar proativamente: "De qual conta esse dinheiro saiu?"
-       ANTES de tentar chamar esta ferramenta. Não adivinhe a conta de origem/destino sem ter certeza.
-    7. Quando for realizar o lançamento, explique sua lógica: "Vou debitar 10.00 de despesas:padaria e creditar -10.00 de ativos:carteira com a tag 'tipo:alimentacao'".
+       ANTES de tentar chamar esta ferramenta. Não adivinhe a conta de origem sem ter certeza.
+    8. Explique sua lógica: "Vou debitar 10.00 de despesas:alimentacao:padaria e creditar -10.00 de ativos:carteira com a tag 'tipo:lanche'".
     
     Args:
         date_str (str): A data da transação no formato YYYY-MM-DD.
-        description (str): Descrição curta e objetiva.
+        description (str): Descrição curta e objetiva. Iniciar preferencialmente de forma consistente.
         postings (list[dict]): A lista balanceada de lançamentos. Ex: [{"account": "despesas:moradia:internet", "amount": "99.00", "tags": ["fornecedor:claro"]}]
     """
     try:
@@ -146,6 +150,33 @@ def get_accounts_tree() -> str:
     output = ["Contas Financeiras Em Uso:"]
     for acc in accounts:
         output.append(f"- {acc}")
+    return "\n".join(output)
+
+@mcp.tool()
+def get_tags_list() -> str:
+    """Retorna uma lista de todas as tags (chave:valor) atualmente em uso no HomeBeans, ordenadas de forma única."""
+    ledger_path = _get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    if not transactions:
+        return "Nenhuma tag foi utilizada ainda no ledger vazio."
+
+    tags_set = set()
+    for t in transactions:
+        for p in t.postings:
+            if p.tags:
+                for tag in p.tags:
+                    tags_set.add(tag)
+                    
+    if not tags_set:
+        return "Nenhuma tag está em uso atualmente."
+
+    output = ["Tags em uso no sistema (priorize-as antes de criar novas):"]
+    for tag in sorted(tags_set):
+        output.append(f"- {tag}")
     return "\n".join(output)
 
 @mcp.tool()
@@ -328,13 +359,14 @@ def homebeans_guide() -> str:
         "Soma dos lançamentos de uma transação DEVE ser sempre zero. \n\n"
         "Comandos Básicos de Contas e Sintaxe OBRIGATÓRIA 'tipo:subtipo:detalhe':\n"
         "- Somente 5 raízes são permitidas: ativos, passivos, entradas, despesas, patrimônio.\n"
+        "- O limite máximo é de 3 níveis por conta. Um quarto nível é expressamente proibido. Empurre detalhes extras para uma tag.\n"
         "- Ativos (Dinheiro, Bancos) crescem com débitos (positivo) e reduzem com créditos (negativo).\n"
         "- Despesas crescem com débitos (positivo).\n"
         "- Entradas (Receitas) e Passivos (Dívidas) crescem com créditos (negativos).\n"
         "- Patrimônio (Equity) representa o patrimônio líquido.\n\n"
         "Regra OBRIGATÓRIA de Tags:\n"
-        "- Tags SEMPRE devem seguir o formato chave:valor (ex: 'veiculo:meteor 350', 'viagem:sp').\n\n"
-        "Sempre comunique o usuário detalhadamente o que vai contabilizar. Exemplo: "
-        "'Ok, vou adicionar uma transação tirando R$ 50 da conta ativos:bancos:itau e colocar na conta despesas:moradia:internet com a tag operadora:claro'."
+        "- Tags SEMPRE devem seguir o formato chave:valor (ex: 'veiculo:meteor', 'viagem:sp').\n"
+        "- DÊ PREFERÊNCIA ABSOLUTA às tags já existentes no sistema (use a ferramenta get_tags_list() para checar).\n\n"
+        "Sempre comunique o usuário detalhadamente o que vai contabilizar prestando atenção à consistência total."
     )
 
