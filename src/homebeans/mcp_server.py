@@ -39,12 +39,26 @@ def get_balance() -> str:
     return "\n".join(output)
 
 @mcp.tool()
-def get_transactions(limit: int = 10) -> str:
+def get_transactions(
+    limit: int = 10,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    account_filter: str | None = None,
+    description_filter: str | None = None,
+    tag_filter: str | None = None
+) -> str:
     """
-    Retorna as transações mais recentes do ledger para análise.
+    Retorna as transações registradas no ledger.
+    Útil para a IA analisar o histórico de gastos ou procurar transações específicas usando os filtros disponíveis.
+    Se a busca retornar vazio, tente relaxar os filtros parciais.
     
     Args:
-        limit (int): Número máximo de transações para retornar (padrão 10).
+        limit (int): Número máximo de transações a retornar do final da lista filtrada. Padrão 10 (0 para sem limite).
+        start_date (str): Filtrar transações ocorridas a partir desta data (YYYY-MM-DD).
+        end_date (str): Filtrar transações ocorridas até esta data (YYYY-MM-DD).
+        account_filter (str): Filtra transações onde pelo menos um posting contenha esta string na conta (case-insensitive).
+        description_filter (str): Busca parcial na descrição da transação (case-insensitive).
+        tag_filter (str): Filtra transações contendo uma tag que dê match nesta string (case-insensitive).
     """
     ledger_path = _get_ledger_path()
     try:
@@ -53,14 +67,58 @@ def get_transactions(limit: int = 10) -> str:
         return f"Erro ao carregar transações: {e}"
 
     if not transactions:
-        return "Nenhuma transação registrada no momento."
+        return "Nenhuma transação encontrada no ledger vazio."
 
-    recent = transactions[-limit:]
-    output = [f"Últimas {len(recent)} transações:"]
-    for t in reversed(recent):
-        postings_str = ", ".join(f"[{p.account}: {p.amount}]" for p in t.postings)
-        output.append(f"Data: {t.date} | Desc: {t.description} | {postings_str}")
+    # Date parsing
+    dt_start = None
+    dt_end = None
+    try:
+        if start_date: dt_start = datetime.strptime(start_date, "%Y-%m-%d").date()
+        if end_date: dt_end = datetime.strptime(end_date, "%Y-%m-%d").date()
+    except ValueError:
+        return "Erro: Filtros de data devem estar no formato YYYY-MM-DD."
+
+    desc_lower = description_filter.lower() if description_filter else None
+    acc_lower = account_filter.lower() if account_filter else None
+    tag_lower = tag_filter.lower() if tag_filter else None
+
+    filtered = []
+    for t in transactions:
+        # Filtro de data
+        if dt_start and t.date < dt_start: continue
+        if dt_end and t.date > dt_end: continue
         
+        # Filtro de descrição
+        if desc_lower and desc_lower not in t.description.strip().lower(): continue
+        
+        # Filtro de conta e tag
+        if acc_lower or tag_lower:
+            match_acc = False
+            match_tag = False
+            for p in t.postings:
+                if acc_lower and acc_lower in p.account.lower():
+                    match_acc = True
+                if tag_lower and p.tags:
+                    for tag in p.tags:
+                        if tag_lower in tag.lower():
+                            match_tag = True
+            
+            if acc_lower and not match_acc: continue
+            if tag_lower and not match_tag: continue
+
+        filtered.append(t)
+
+    if not filtered:
+        return "Nenhuma transação atendeu aos filtros requeridos."
+
+    if limit > 0:
+        filtered = filtered[-limit:]
+
+    output = [f"Resultados ({len(filtered)} de um histórico correspondente):"]
+    for t in reversed(filtered):
+        postings_str = ", ".join(f"[{p.account}: {p.amount}" + (f" tags: {p.tags}" if p.tags else "") + "]" for p in t.postings)
+        output.append(f"Data: {t.date} | Desc: {t.description} | {postings_str}")
+
     return "\n".join(output)
 
 @mcp.tool()
