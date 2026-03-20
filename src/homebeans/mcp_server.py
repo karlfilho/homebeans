@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
 from homebeans.models import Posting, Transaction
-from homebeans.reports import balance_report
+from homebeans.reports import balance_report, format_ascii_tree, generate_income_statement, generate_balance_sheet, generate_cashflow
 from homebeans.storage import load_ledger, save_ledger
 from core.suggester import extract_all_accounts
 
@@ -191,7 +191,7 @@ def add_transaction(date_str: str, description: str, postings: list[dict[str, An
 
 @mcp.tool()
 def get_accounts_tree() -> str:
-    """Retorna a lista completa das contas contábeis organizadas por hierarquia atualmente em uso no HomeBeans."""
+    """Retorna uma árvore ASCII hierárquica completa de todas as contas em uso no HomeBeans."""
     ledger_path = _get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
@@ -205,10 +205,7 @@ def get_accounts_tree() -> str:
     if not accounts:
         return "Nenhuma conta foi utilizada ainda."
 
-    output = ["Contas Financeiras Em Uso:"]
-    for acc in accounts:
-        output.append(f"- {acc}")
-    return "\n".join(output)
+    return "=== Árvore de Contas ===\n" + format_ascii_tree(accounts)
 
 @mcp.tool()
 def get_tags_list() -> str:
@@ -427,4 +424,54 @@ def homebeans_guide() -> str:
         "- DÊ PREFERÊNCIA ABSOLUTA às tags já existentes no sistema (use a ferramenta get_tags_list() para checar).\n\n"
         "Sempre comunique o usuário detalhadamente o que vai contabilizar prestando atenção à consistência total."
     )
+
+@mcp.tool()
+def get_income_statement(period: str = "month") -> str:
+    """
+    Retorna o DRE (Demonstração do Resultado / Income Statement).
+    Foca apenas em Entradas e Despesas, mostrando o Lucro/Prejuízo Líquido por período.
+    
+    Args:
+        period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
+    """
+    ledger_path = _get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+        
+    return generate_income_statement(transactions, period)
+
+@mcp.tool()
+def get_balance_sheet(period: str = "month") -> str:
+    """
+    Retorna o Balanço Patrimonial (Balance Sheet) acumulativo ao longo do tempo.
+    Foca no acúmulo de Ativos, Passivos e Patrimônio. Permite analisar a evolução do capital.
+    
+    Args:
+        period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
+    """
+    ledger_path = _get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+        
+    return generate_balance_sheet(transactions, period)
+
+@mcp.tool()
+def get_cashflow(period: str = "month") -> str:
+    """
+    Retorna o relatório de Fluxo de Caixa (Cashflow) avaliando apenas a variação líquida dos Ativos em cada período.
+    
+    Args:
+        period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
+    """
+    ledger_path = _get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+        
+    return generate_cashflow(transactions, period)
 
