@@ -7,7 +7,14 @@ from mcp.server.fastmcp import FastMCP
 
 from homebeans.config import get_ledger_path
 from homebeans.models import Posting, Transaction
-from homebeans.reports import balance_report, format_ascii_tree, generate_income_statement, generate_balance_sheet, generate_cashflow
+from homebeans.reports import (
+    balance_report,
+    filter_by_dates,
+    format_ascii_tree,
+    generate_balance_sheet,
+    generate_cashflow,
+    generate_income_statement,
+)
 from homebeans.storage import load_ledger, save_ledger
 from homebeans.suggester import extract_all_accounts
 
@@ -518,53 +525,119 @@ def homebeans_guide() -> str:
         "Sempre comunique o usuário detalhadamente o que vai contabilizar prestando atenção à consistência total."
     )
 
-@mcp.tool()
-def get_income_statement(period: str = "month") -> str:
+def _parse_report_dates(start_date: str | None, end_date: str | None):
+    """Converte strings YYYY-MM-DD em objetos date para os relatórios.
+
+    Retorna (dt_start, dt_end) ou lança ValueError com mensagem amigável.
     """
-    Retorna o DRE (Demonstração do Resultado / Income Statement).
+    from datetime import date as date_type
+    dt_start = None
+    dt_end = None
+    try:
+        if start_date:
+            dt_start = datetime.strptime(start_date, "%Y-%m-%d").date()
+        if end_date:
+            dt_end = datetime.strptime(end_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError("Datas devem estar no formato YYYY-MM-DD.")
+    return dt_start, dt_end
+
+
+@mcp.tool()
+def get_income_statement(
+    period: str = "month",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
+    """
+    Retorna o DRE (Demonstração do Resultado do Exercício).
     Foca apenas em Entradas e Despesas, mostrando o Lucro/Prejuízo Líquido por período.
-    
+
     Args:
-        period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
+        period (str): Agrupamento. Opções: 'day', 'week', 'month', 'year', 'all'. Padrão: 'month'.
+        start_date (str): Data inicial do recorte, formato YYYY-MM-DD (opcional).
+        end_date (str): Data final do recorte, formato YYYY-MM-DD (opcional).
     """
     ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
         return f"Erro ao carregar transações: {e}"
-        
+
+    try:
+        dt_start, dt_end = _parse_report_dates(start_date, end_date)
+    except ValueError as e:
+        return f"Erro: {e}"
+
+    # Filtragem local antes de passar para o relatório
+    transactions = filter_by_dates(transactions, dt_start, dt_end)
+    if not transactions:
+        return "Nenhuma transação encontrada no período informado."
+
     return generate_income_statement(transactions, period)
 
-@mcp.tool()
-def get_balance_sheet(period: str = "month") -> str:
-    """
-    Retorna o Balanço Patrimonial (Balance Sheet) acumulativo ao longo do tempo.
-    Foca no acúmulo de Ativos, Passivos e Patrimônio. Permite analisar a evolução do capital.
-    
-    Args:
-        period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
-    """
-    ledger_path = get_ledger_path()
-    try:
-        transactions = load_ledger(ledger_path)
-    except Exception as e:
-        return f"Erro ao carregar transações: {e}"
-        
-    return generate_balance_sheet(transactions, period)
 
 @mcp.tool()
-def get_cashflow(period: str = "month") -> str:
+def get_balance_sheet(
+    period: str = "month",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
     """
-    Retorna o relatório de Fluxo de Caixa (Cashflow) avaliando apenas a variação líquida dos Ativos em cada período.
-    
+    Retorna o Balanço Patrimonial acumulativo ao longo do tempo.
+    Foca no acúmulo de Ativos, Passivos e Patrimônio.
+
     Args:
-        period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
+        period (str): Agrupamento. Opções: 'day', 'week', 'month', 'year', 'all'. Padrão: 'month'.
+        start_date (str): Data inicial do recorte, formato YYYY-MM-DD (opcional).
+        end_date (str): Data final do recorte, formato YYYY-MM-DD (opcional).
     """
     ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
         return f"Erro ao carregar transações: {e}"
-        
+
+    try:
+        dt_start, dt_end = _parse_report_dates(start_date, end_date)
+    except ValueError as e:
+        return f"Erro: {e}"
+
+    transactions = filter_by_dates(transactions, dt_start, dt_end)
+    if not transactions:
+        return "Nenhuma transação encontrada no período informado."
+
+    return generate_balance_sheet(transactions, period)
+
+
+@mcp.tool()
+def get_cashflow(
+    period: str = "month",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
+    """
+    Retorna o Fluxo de Caixa — variação líquida dos Ativos por período.
+
+    Args:
+        period (str): Agrupamento. Opções: 'day', 'week', 'month', 'year', 'all'. Padrão: 'month'.
+        start_date (str): Data inicial do recorte, formato YYYY-MM-DD (opcional).
+        end_date (str): Data final do recorte, formato YYYY-MM-DD (opcional).
+    """
+    ledger_path = get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    try:
+        dt_start, dt_end = _parse_report_dates(start_date, end_date)
+    except ValueError as e:
+        return f"Erro: {e}"
+
+    transactions = filter_by_dates(transactions, dt_start, dt_end)
+    if not transactions:
+        return "Nenhuma transação encontrada no período informado."
+
     return generate_cashflow(transactions, period)
 

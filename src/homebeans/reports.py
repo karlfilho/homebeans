@@ -1,9 +1,28 @@
 """Relatórios e agregações contábeis."""
 
 from collections import defaultdict
+from datetime import date
 from decimal import Decimal
 
 from homebeans.models import Transaction
+
+
+def filter_by_dates(
+    transactions: list[Transaction],
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> list[Transaction]:
+    """Filtra transações por intervalo de datas (ambos os extremos inclusivos).
+
+    Utilizado pelos relatórios para recortar o período antes de agregar.
+    Nenhum dos parâmetros é obrigatório — sem filtro, retorna a lista inteira.
+    """
+    result = transactions
+    if start_date:
+        result = [t for t in result if t.date >= start_date]
+    if end_date:
+        result = [t for t in result if t.date <= end_date]
+    return result
 
 
 def balance_by_account(transactions: list[Transaction]) -> dict[str, Decimal]:
