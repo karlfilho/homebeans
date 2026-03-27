@@ -11,9 +11,12 @@ from homebeans.reports import (
     balance_report,
     filter_by_dates,
     format_ascii_tree,
+    generate_account_statement,
     generate_balance_sheet,
     generate_cashflow,
     generate_income_statement,
+    generate_ledger_stats,
+    generate_spending_summary,
 )
 from homebeans.storage import load_ledger, save_ledger
 from homebeans.suggester import extract_all_accounts
@@ -331,6 +334,94 @@ def get_tags_list() -> str:
     for tag in sorted(tags_set):
         output.append(f"- {tag}")
     return "\n".join(output)
+
+
+@mcp.tool()
+def get_ledger_stats() -> str:
+    """
+    Retorna estatísticas gerais do ledger: total de transações, período coberto,
+    número de contas e tags distintas, e média de transações por mês.
+
+    Ideal para uso no início de uma conversa para obter o contexto do ledger
+    sem precisar carregar ou analisar todas as transações manualmente.
+    Todo o cálculo é feito localmente.
+    """
+    ledger_path = get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    return generate_ledger_stats(transactions)
+
+
+@mcp.tool()
+def get_account_statement(
+    account: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
+    """
+    Retorna o extrato detalhado de uma conta com saldo acumulado linha a linha,
+    semelhante a um extrato bancário.
+
+    Aceita filtro parcial: "ativos:banco" captura todas as subcontas de banco.
+    Útil para responder "o que passou pelo Nubank em março?" sem a LLM precisar
+    somar nada — todo o cálculo é feito localmente.
+
+    Args:
+        account (str): Nome ou prefixo da conta. Ex: "ativos:banco", "despesas:moradia".
+        start_date (str): Data inicial YYYY-MM-DD (opcional).
+        end_date (str): Data final YYYY-MM-DD (opcional).
+    """
+    ledger_path = get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    try:
+        dt_start, dt_end = _parse_report_dates(start_date, end_date)
+    except ValueError as e:
+        return f"Erro: {e}"
+
+    return generate_account_statement(transactions, account, dt_start, dt_end)
+
+
+@mcp.tool()
+def get_spending_summary(
+    period: str = "month",
+    start_date: str | None = None,
+    end_date: str | None = None,
+    top_n: int = 10,
+) -> str:
+    """
+    Retorna os maiores gastos por categoria de despesa (2º nível da conta),
+    com valor total e percentual sobre o total de despesas do período.
+
+    Exemplo: "despesas:alimentacao: 450.00 (28.1%)"
+
+    Ideal para responder "onde estou gastando mais?" com cálculo 100% local.
+
+    Args:
+        period (str): Agrupamento. Opções: 'day', 'week', 'month', 'year', 'all'. Padrão: 'month'.
+        start_date (str): Data inicial YYYY-MM-DD (opcional).
+        end_date (str): Data final YYYY-MM-DD (opcional).
+        top_n (int): Número máximo de categorias por período. Padrão: 10.
+    """
+    ledger_path = get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    try:
+        dt_start, dt_end = _parse_report_dates(start_date, end_date)
+    except ValueError as e:
+        return f"Erro: {e}"
+
+    return generate_spending_summary(transactions, period, dt_start, dt_end, top_n)
+
 
 @mcp.tool()
 def delete_transaction(
