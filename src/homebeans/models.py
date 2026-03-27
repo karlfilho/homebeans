@@ -6,6 +6,7 @@ Convenção de sinais:
 - Soma dos postings sempre zero (débitos = créditos)
 """
 
+import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -78,8 +79,13 @@ class Posting(BaseModel):
 
 
 class Transaction(BaseModel):
-    """Transação com múltiplos lançamentos (partida dobrada)."""
+    """Transação com múltiplos lançamentos (partida dobrada).
 
+    O campo `id` é gerado automaticamente (UUID4) na criação e persistido
+    no YAML. Transações legadas sem `id` recebem um UUID na leitura.
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     date: date
     description: str
     postings: list[Posting]

@@ -1,5 +1,6 @@
 """Persistência do livro-razão em YAML com Ruamel."""
 
+import uuid
 from pathlib import Path
 
 from ruamel.yaml import YAML
@@ -8,8 +9,12 @@ from homebeans.models import Transaction
 
 
 def _transaction_to_dict(t: Transaction) -> dict:
-    """Serializa Transaction para dict compatível com YAML."""
+    """Serializa Transaction para dict compatível com YAML.
+
+    O campo `id` é sempre incluído para garantir rastreabilidade.
+    """
     return {
+        "id": t.id,
         "date": str(t.date),
         "description": t.description,
         "postings": [
@@ -24,8 +29,17 @@ def _transaction_to_dict(t: Transaction) -> dict:
 
 
 def _dict_to_transaction(d: dict) -> Transaction:
-    """Desserializa dict para Transaction."""
+    """Desserializa dict para Transaction.
+
+    Migração automática: transações legadas sem campo `id` no YAML
+    recebem um UUID gerado na leitura. Na próxima gravação o ID é
+    persistido, tornando a migração transparente e permanente.
+    """
+    # Migração: se o YAML não tiver `id` (transação legada), gera um UUID aqui.
+    # Não passamos None para o modelo — o Pydantic ignoraria o default_factory se id=None.
+    transaction_id = d.get("id") or str(uuid.uuid4())
     return Transaction(
+        id=transaction_id,
         date=d["date"],
         description=d["description"],
         postings=[

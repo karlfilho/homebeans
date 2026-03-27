@@ -111,8 +111,12 @@ def get_transactions(
 
     output = [f"Resultados ({len(filtered)} de um histórico correspondente):"]
     for t in reversed(filtered):
-        postings_str = ", ".join(f"[{p.account}: {p.amount}" + (f" tags: {p.tags}" if p.tags else "") + "]" for p in t.postings)
-        output.append(f"Data: {t.date} | Desc: {t.description} | {postings_str}")
+        postings_str = ", ".join(
+            f"[{p.account}: {p.amount}" + (f" tags: {p.tags}" if p.tags else "") + "]"
+            for p in t.postings
+        )
+        # ID exibido para permitir referência precisa em delete/edit
+        output.append(f"ID: {t.id} | Data: {t.date} | Desc: {t.description} | {postings_str}")
 
     return "\n".join(output)
 
@@ -182,7 +186,8 @@ def add_transaction(date_str: str, description: str, postings: list[dict[str, An
 
     transactions.append(t)
     save_ledger(ledger_path, transactions)
-    return f"Transação adicionada com sucesso em {date_str} - {description}."
+    # Retorna o ID para que o usuário/IA possa referenciar a transação futuramente
+    return f"Transação adicionada com sucesso. ID: {t.id} | {date_str} - {description}."
 
 @mcp.tool()
 def get_accounts_tree() -> str:
@@ -230,19 +235,27 @@ def get_tags_list() -> str:
     return "\n".join(output)
 
 @mcp.tool()
-def delete_transaction(date_str: str, description: str) -> str:
+def delete_transaction(
+    transaction_id: str | None = None,
+    date_str: str | None = None,
+    description: str | None = None,
+) -> str:
     """
-    Remove uma transação específica do ledger baseando-se na data (YYYY-MM-DD) e descrição exata (case-insensitive).
-    Dica: use get_transactions primeiro para listar os registros recentes e obter a data e descrição corretas.
-    
+    Remove uma transação do ledger.
+
+    Formas de localizar a transação (use a mais precisa disponível):
+    1. Por ID (preferido): passe apenas `transaction_id` — busca exata, sem ambiguidade.
+    2. Por data + descrição (fallback): passe `date_str` (YYYY-MM-DD) e `description`.
+
+    Dica: use get_transactions para obter o ID antes de remover.
+
     Args:
-        date_str (str): A data exata da transação (ex: 2024-01-15).
-        description (str): A descrição da transação.
+        transaction_id (str): ID único da transação (preferido).
+        date_str (str): Data da transação no formato YYYY-MM-DD (fallback).
+        description (str): Descrição exata da transação (fallback).
     """
-    try:
-        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return "Erro: Data deve estar no formato YYYY-MM-DD."
+    if not transaction_id and not (date_str and description):
+        return "Erro: forneça `transaction_id` ou `date_str` + `description`."
 
     ledger_path = get_ledger_path()
     try:
@@ -253,52 +266,72 @@ def delete_transaction(date_str: str, description: str) -> str:
     if not transactions:
         return "Erro: Ledger está vazio."
 
-    target_desc = description.strip().lower()
-    matching_indices = [
-        i for i, t in enumerate(transactions)
-        if t.date == dt and t.description.strip().lower() == target_desc
-    ]
-
-    if not matching_indices:
-        return f"Erro: Nenhuma transação encontrada no dia {date_str} com a descrição '{description}'."
+    if transaction_id:
+        # Busca direta por ID — precisa e sem ambiguidade
+        matching_indices = [i for i, t in enumerate(transactions) if t.id == transaction_id]
+        if not matching_indices:
+            return f"Erro: Nenhuma transação encontrada com ID '{transaction_id}'."
+    else:
+        # Fallback por data + descrição
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d").date()  # type: ignore[arg-type]
+        except ValueError:
+            return "Erro: Data deve estar no formato YYYY-MM-DD."
+        target_desc = description.strip().lower()  # type: ignore[union-attr]
+        matching_indices = [
+            i for i, t in enumerate(transactions)
+            if t.date == dt and t.description.strip().lower() == target_desc
+        ]
+        if not matching_indices:
+            return f"Erro: Nenhuma transação encontrada em {date_str} com a descrição '{description}'."
 
     duplicates_warning = ""
     if len(matching_indices) > 1:
-        duplicates_warning = f" Atenção: havia {len(matching_indices)} transações com essa data e descrição; apenas a primeira foi removida."
+        duplicates_warning = f" Atenção: {len(matching_indices)} transações correspondiam; apenas a primeira foi removida."
 
     deleted = transactions.pop(matching_indices[0])
     save_ledger(ledger_path, transactions)
-    return f"Transação '{deleted.description}' do dia {deleted.date} removida com sucesso.{duplicates_warning}"
+    return f"Transação '{deleted.description}' do dia {deleted.date} (ID: {deleted.id}) removida com sucesso.{duplicates_warning}"
 
 @mcp.tool()
 def edit_transaction(
-    date_str: str, 
-    description: str,
     new_date_str: str | None = None,
     new_description: str | None = None,
-    new_postings: list[dict[str, Any]] | None = None
+    new_postings: list[dict[str, Any]] | None = None,
+    transaction_id: str | None = None,
+    date_str: str | None = None,
+    description: str | None = None,
 ) -> str:
     """
-    Edita uma transação existente no ledger. Localiza a transação pela data e descrição originais.
-    Apenas passe os campos 'new_...' que você deseja alterar.
-    
-    REGRA DE NEGÓCIO - PARTIDA DOBRADA (REQUISITO CRÍTICO):
-    Se for alterar os postings (para corrigir um valor, por exemplo), você deve fornecer a lista 
-    INTEIRA balanceada novamente nos 'new_postings', cuja soma de valores seja 0.
-    Se o usuário pedir "agora o mercado foi R$ 60 em vez de R$ 50", lembre-se de atualizar
-    a contrapartida (ex: o saldo negativo de ativos:banco) proporcionalmente e avise-o disso.
-    """
-    try:
-        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return "Erro: A data atual deve estar no formato YYYY-MM-DD."
+    Edita uma transação existente no ledger. Apenas passe os campos 'new_...' que deseja alterar.
 
-    new_dt = dt
+    Formas de localizar a transação (use a mais precisa disponível):
+    1. Por ID (preferido): passe apenas `transaction_id`.
+    2. Por data + descrição (fallback): passe `date_str` (YYYY-MM-DD) e `description`.
+
+    REGRA DE NEGÓCIO - PARTIDA DOBRADA (REQUISITO CRÍTICO):
+    Se alterar os postings, forneça a lista INTEIRA e balanceada em `new_postings`.
+    A soma de todos os `amount` DEVE ser zero. Lembre-se de atualizar a contrapartida
+    proporcionalmente (ex: ao ajustar uma despesa, ajuste também o crédito em ativos).
+
+    Args:
+        transaction_id (str): ID único da transação (preferido para localização).
+        date_str (str): Data atual da transação YYYY-MM-DD (fallback).
+        description (str): Descrição atual da transação (fallback).
+        new_date_str (str): Nova data (opcional).
+        new_description (str): Nova descrição (opcional).
+        new_postings (list): Lista completa e balanceada de postings (opcional).
+    """
+    if not transaction_id and not (date_str and description):
+        return "Erro: forneça `transaction_id` ou `date_str` + `description`."
+
     if new_date_str:
         try:
             new_dt = datetime.strptime(new_date_str, "%Y-%m-%d").date()
         except ValueError:
             return "Erro: A nova data deve estar no formato YYYY-MM-DD."
+    else:
+        new_dt = None
 
     ledger_path = get_ledger_path()
     try:
@@ -309,21 +342,33 @@ def edit_transaction(
     if not transactions:
         return "Erro: Ledger está vazio."
 
-    target_desc = description.strip().lower()
-    matching_indices = [
-        i for i, t in enumerate(transactions)
-        if t.date == dt and t.description.strip().lower() == target_desc
-    ]
-
-    if not matching_indices:
-        return f"Erro: Nenhuma transação encontrada na data {date_str} com a descrição '{description}'."
+    if transaction_id:
+        # Busca direta por ID — precisa e sem ambiguidade
+        matching_indices = [i for i, t in enumerate(transactions) if t.id == transaction_id]
+        if not matching_indices:
+            return f"Erro: Nenhuma transação encontrada com ID '{transaction_id}'."
+    else:
+        # Fallback por data + descrição
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d").date()  # type: ignore[arg-type]
+        except ValueError:
+            return "Erro: A data deve estar no formato YYYY-MM-DD."
+        target_desc = description.strip().lower()  # type: ignore[union-attr]
+        matching_indices = [
+            i for i, t in enumerate(transactions)
+            if t.date == dt and t.description.strip().lower() == target_desc
+        ]
+        if not matching_indices:
+            return f"Erro: Nenhuma transação encontrada em {date_str} com a descrição '{description}'."
 
     duplicates_warning = ""
     if len(matching_indices) > 1:
-        duplicates_warning = f" Atenção: havia {len(matching_indices)} transações com essa data e descrição; apenas a primeira foi editada."
+        duplicates_warning = f" Atenção: {len(matching_indices)} transações correspondiam; apenas a primeira foi editada."
 
     matching_idx = matching_indices[0]
     t_edit = transactions[matching_idx]
+    # Usa a data original se nenhuma nova data foi fornecida
+    new_dt = new_dt or t_edit.date
     
     final_desc = new_description if new_description else t_edit.description
     final_postings = t_edit.postings
@@ -336,8 +381,8 @@ def edit_transaction(
             try:
                 amt = Decimal(str(p_dict["amount"]))
                 posting = Posting(
-                    account=p_dict["account"], 
-                    amount=amt, 
+                    account=p_dict["account"],
+                    amount=amt,
                     tags=p_dict.get("tags", [])
                 )
                 postings_list.append(posting)
@@ -346,13 +391,19 @@ def edit_transaction(
         final_postings = postings_list
 
     try:
-        valid_t = Transaction(date=new_dt, description=final_desc, postings=final_postings)
+        # Preserva o ID original — edição não gera um novo ID
+        valid_t = Transaction(
+            id=t_edit.id,
+            date=new_dt,
+            description=final_desc,
+            postings=final_postings,
+        )
         transactions[matching_idx] = valid_t
     except Exception as e:
-        return f"Erro de validação na nova transação (provavelmente o saldo não zera): {e}"
+        return f"Erro de validação na nova transação (a soma dos postings deve ser zero): {e}"
 
     save_ledger(ledger_path, transactions)
-    return f"Transação editada com sucesso! Atualizada para: {valid_t.date} - {valid_t.description}.{duplicates_warning}"
+    return f"Transação editada com sucesso! ID: {valid_t.id} | {valid_t.date} - {valid_t.description}.{duplicates_warning}"
 
 
 @mcp.tool()
