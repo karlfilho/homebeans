@@ -23,8 +23,20 @@ load_dotenv()
 mcp = FastMCP("homebeans")
 
 @mcp.tool()
-def get_balance() -> str:
-    """Retorna o balanço financeiro atual agrupado por contas do aplicativo HomeBeans."""
+def get_balance(account_filter: str | None = None) -> str:
+    """
+    Retorna o saldo atual das contas do HomeBeans.
+
+    Sem filtro, exibe todas as contas. Com filtro, exibe apenas as contas
+    cujo nome contenha a string informada (case-insensitive). Útil para
+    consultas como "saldo de ativos", "saldo de despesas:alimentacao" etc.
+
+    O cálculo é feito localmente — soma de todos os postings por conta.
+
+    Args:
+        account_filter (str): Substring para filtrar contas (opcional).
+            Ex: "ativos", "despesas:transporte", "banco".
+    """
     ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
@@ -35,7 +47,15 @@ def get_balance() -> str:
     if not report:
         return "Nenhuma conta possui saldo no momento."
 
-    output = ["Balanço de Contas HomeBeans:"]
+    # Aplica o filtro localmente se fornecido
+    if account_filter:
+        acc_lower = account_filter.lower()
+        report = [(acc, bal) for acc, bal in report if acc_lower in acc.lower()]
+        if not report:
+            return f"Nenhuma conta encontrada com '{account_filter}'."
+
+    header = f"Balanço de Contas HomeBeans" + (f" (filtro: '{account_filter}'):" if account_filter else ":")
+    output = [header]
     for account, bal in report:
         output.append(f"- {account}: {bal}")
     return "\n".join(output)
