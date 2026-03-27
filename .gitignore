@@ -27,6 +27,7 @@ coverage.xml
 
 # Ledger data (user-specific)
 data/*.yaml
+!data/demo_ledger_template.yaml
 data/*.html
 balance*.html
 

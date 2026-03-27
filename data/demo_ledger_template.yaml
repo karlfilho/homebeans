@@ -1,0 +1,538 @@
+transactions:
+  # --- Saldo inicial (abertura) ---
+  - id: "demo-0000-0000-0000-000000000001"
+    date: "2026-01-01"
+    description: "Saldo inicial do sistema"
+    postings:
+      - account: "ativos:banco:nubank"
+        amount: "8000.00"
+        tags: []
+      - account: "ativos:banco:inter"
+        amount: "3000.00"
+        tags: []
+      - account: "ativos:carteira"
+        amount: "500.00"
+        tags: []
+      - account: "patrimonio:abertura"
+        amount: "-11500.00"
+        tags: []
+
+  # --- Janeiro 2026 ---
+  - id: "demo-0000-0000-0000-000000000002"
+    date: "2026-01-05"
+    description: "Salário janeiro"
+    postings:
+      - account: "ativos:banco:nubank"
+        amount: "5500.00"
+        tags: []
+      - account: "entradas:salario"
+        amount: "-5500.00"
+        tags: [tipo:clt]
+
+  - id: "demo-0000-0000-0000-000000000003"
+    date: "2026-01-07"
+    description: "Supermercado Pão de Açúcar"
+    postings:
+      - account: "despesas:alimentacao:mercado"
+        amount: "342.80"
+        tags: []
+      - account: "ativos:banco:nubank"
+        amount: "-342.80"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000004"
+    date: "2026-01-10"
+    description: "Aluguel janeiro"
+    postings:
+      - account: "despesas:moradia:aluguel"
+        amount: "1800.00"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-1800.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000005"
+    date: "2026-01-10"
+    description: "Condomínio janeiro"
+    postings:
+      - account: "despesas:moradia:condominio"
+        amount: "280.00"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-280.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000006"
+    date: "2026-01-11"
+    description: "Farmácia Drogasil"
+    postings:
+      - account: "despesas:saude:farmacia"
+        amount: "67.30"
+        tags: []
+      - account: "ativos:carteira"
+        amount: "-67.30"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000007"
+    date: "2026-01-12"
+    description: "Internet Vivo"
+    postings:
+      - account: "despesas:moradia:internet"
+        amount: "99.90"
+        tags: [tipo:fixo, fornecedor:vivo]
+      - account: "ativos:banco:nubank"
+        amount: "-99.90"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000008"
+    date: "2026-01-13"
+    description: "Almoço restaurante"
+    postings:
+      - account: "despesas:alimentacao:restaurante"
+        amount: "85.00"
+        tags: []
+      - account: "ativos:carteira"
+        amount: "-85.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000009"
+    date: "2026-01-15"
+    description: "Conta de energia elétrica"
+    postings:
+      - account: "despesas:moradia:energia"
+        amount: "187.50"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-187.50"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000010"
+    date: "2026-01-15"
+    description: "Saque em dinheiro"
+    postings:
+      - account: "ativos:carteira"
+        amount: "400.00"
+        tags: []
+      - account: "ativos:banco:nubank"
+        amount: "-400.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000011"
+    date: "2026-01-18"
+    description: "Gasolina posto Shell"
+    postings:
+      - account: "despesas:transporte:combustivel"
+        amount: "180.00"
+        tags: [veiculo:civic]
+      - account: "ativos:carteira"
+        amount: "-180.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000012"
+    date: "2026-01-20"
+    description: "Streaming mensal"
+    postings:
+      - account: "despesas:lazer:streaming"
+        amount: "77.80"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-77.80"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000013"
+    date: "2026-01-21"
+    description: "Jantar com amigos"
+    postings:
+      - account: "despesas:alimentacao:restaurante"
+        amount: "127.50"
+        tags: []
+      - account: "ativos:carteira"
+        amount: "-127.50"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000014"
+    date: "2026-01-22"
+    description: "Supermercado Extra"
+    postings:
+      - account: "despesas:alimentacao:mercado"
+        amount: "298.50"
+        tags: []
+      - account: "ativos:banco:nubank"
+        amount: "-298.50"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000015"
+    date: "2026-01-24"
+    description: "Academia Smart Fit"
+    postings:
+      - account: "despesas:saude:academia"
+        amount: "89.90"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-89.90"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000016"
+    date: "2026-01-25"
+    description: "Uber app"
+    postings:
+      - account: "despesas:transporte:uber"
+        amount: "34.90"
+        tags: []
+      - account: "ativos:banco:nubank"
+        amount: "-34.90"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000017"
+    date: "2026-01-28"
+    description: "Transferência para poupança"
+    postings:
+      - account: "ativos:banco:inter"
+        amount: "500.00"
+        tags: [tipo:poupanca]
+      - account: "ativos:banco:nubank"
+        amount: "-500.00"
+        tags: []
+
+  # --- Fevereiro 2026 ---
+  - id: "demo-0000-0000-0000-000000000018"
+    date: "2026-02-05"
+    description: "Salário fevereiro"
+    postings:
+      - account: "ativos:banco:nubank"
+        amount: "5500.00"
+        tags: []
+      - account: "entradas:salario"
+        amount: "-5500.00"
+        tags: [tipo:clt]
+
+  - id: "demo-0000-0000-0000-000000000019"
+    date: "2026-02-06"
+    description: "Supermercado Carrefour"
+    postings:
+      - account: "despesas:alimentacao:mercado"
+        amount: "387.20"
+        tags: []
+      - account: "ativos:banco:nubank"
+        amount: "-387.20"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000020"
+    date: "2026-02-10"
+    description: "Aluguel fevereiro"
+    postings:
+      - account: "despesas:moradia:aluguel"
+        amount: "1800.00"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-1800.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000021"
+    date: "2026-02-10"
+    description: "Condomínio fevereiro"
+    postings:
+      - account: "despesas:moradia:condominio"
+        amount: "280.00"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-280.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000022"
+    date: "2026-02-12"
+    description: "Cinema Cinemark"
+    postings:
+      - account: "despesas:lazer:cinema"
+        amount: "48.00"
+        tags: []
+      - account: "ativos:carteira"
+        amount: "-48.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000023"
+    date: "2026-02-12"
+    description: "Internet Vivo"
+    postings:
+      - account: "despesas:moradia:internet"
+        amount: "99.90"
+        tags: [tipo:fixo, fornecedor:vivo]
+      - account: "ativos:banco:nubank"
+        amount: "-99.90"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000024"
+    date: "2026-02-14"
+    description: "Jantar especial restaurante"
+    postings:
+      - account: "despesas:alimentacao:restaurante"
+        amount: "215.00"
+        tags: [ocasiao:especial]
+      - account: "ativos:banco:nubank"
+        amount: "-215.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000025"
+    date: "2026-02-15"
+    description: "Conta de energia elétrica"
+    postings:
+      - account: "despesas:moradia:energia"
+        amount: "195.30"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-195.30"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000026"
+    date: "2026-02-15"
+    description: "Saque em dinheiro"
+    postings:
+      - account: "ativos:carteira"
+        amount: "400.00"
+        tags: []
+      - account: "ativos:banco:nubank"
+        amount: "-400.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000027"
+    date: "2026-02-17"
+    description: "Gasolina posto BR"
+    postings:
+      - account: "despesas:transporte:combustivel"
+        amount: "200.00"
+        tags: [veiculo:civic]
+      - account: "ativos:carteira"
+        amount: "-200.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000028"
+    date: "2026-02-18"
+    description: "Freelance projeto web"
+    postings:
+      - account: "ativos:banco:inter"
+        amount: "1200.00"
+        tags: [cliente:empresa-alpha]
+      - account: "entradas:freelance"
+        amount: "-1200.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000029"
+    date: "2026-02-20"
+    description: "Streaming mensal"
+    postings:
+      - account: "despesas:lazer:streaming"
+        amount: "77.80"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-77.80"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000030"
+    date: "2026-02-22"
+    description: "Roupas loja Renner"
+    postings:
+      - account: "despesas:vestuario"
+        amount: "159.90"
+        tags: []
+      - account: "ativos:banco:nubank"
+        amount: "-159.90"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000031"
+    date: "2026-02-24"
+    description: "Academia Smart Fit"
+    postings:
+      - account: "despesas:saude:academia"
+        amount: "89.90"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-89.90"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000032"
+    date: "2026-02-26"
+    description: "Supermercado Hortifruti"
+    postings:
+      - account: "despesas:alimentacao:mercado"
+        amount: "124.60"
+        tags: []
+      - account: "ativos:carteira"
+        amount: "-124.60"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000033"
+    date: "2026-02-28"
+    description: "Transferência para poupança"
+    postings:
+      - account: "ativos:banco:inter"
+        amount: "800.00"
+        tags: [tipo:poupanca]
+      - account: "ativos:banco:nubank"
+        amount: "-800.00"
+        tags: []
+
+  # --- Março 2026 ---
+  - id: "demo-0000-0000-0000-000000000034"
+    date: "2026-03-05"
+    description: "Salário março"
+    postings:
+      - account: "ativos:banco:nubank"
+        amount: "5500.00"
+        tags: []
+      - account: "entradas:salario"
+        amount: "-5500.00"
+        tags: [tipo:clt]
+
+  - id: "demo-0000-0000-0000-000000000035"
+    date: "2026-03-07"
+    description: "Supermercado Pão de Açúcar"
+    postings:
+      - account: "despesas:alimentacao:mercado"
+        amount: "356.40"
+        tags: []
+      - account: "ativos:banco:nubank"
+        amount: "-356.40"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000036"
+    date: "2026-03-10"
+    description: "Aluguel março"
+    postings:
+      - account: "despesas:moradia:aluguel"
+        amount: "1800.00"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-1800.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000037"
+    date: "2026-03-10"
+    description: "Condomínio março"
+    postings:
+      - account: "despesas:moradia:condominio"
+        amount: "280.00"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-280.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000038"
+    date: "2026-03-12"
+    description: "Internet Vivo"
+    postings:
+      - account: "despesas:moradia:internet"
+        amount: "99.90"
+        tags: [tipo:fixo, fornecedor:vivo]
+      - account: "ativos:banco:nubank"
+        amount: "-99.90"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000039"
+    date: "2026-03-13"
+    description: "Consulta médica particular"
+    postings:
+      - account: "despesas:saude:medico"
+        amount: "250.00"
+        tags: [especialidade:clinico]
+      - account: "ativos:banco:nubank"
+        amount: "-250.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000040"
+    date: "2026-03-15"
+    description: "Conta de energia elétrica"
+    postings:
+      - account: "despesas:moradia:energia"
+        amount: "178.90"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-178.90"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000041"
+    date: "2026-03-15"
+    description: "Saque em dinheiro"
+    postings:
+      - account: "ativos:carteira"
+        amount: "400.00"
+        tags: []
+      - account: "ativos:banco:nubank"
+        amount: "-400.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000042"
+    date: "2026-03-17"
+    description: "Gasolina posto Ipiranga"
+    postings:
+      - account: "despesas:transporte:combustivel"
+        amount: "190.00"
+        tags: [veiculo:civic]
+      - account: "ativos:carteira"
+        amount: "-190.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000043"
+    date: "2026-03-18"
+    description: "Curso online desenvolvimento"
+    postings:
+      - account: "despesas:educacao"
+        amount: "297.00"
+        tags: [plataforma:udemy]
+      - account: "ativos:banco:nubank"
+        amount: "-297.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000044"
+    date: "2026-03-20"
+    description: "Streaming mensal"
+    postings:
+      - account: "despesas:lazer:streaming"
+        amount: "77.80"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-77.80"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000045"
+    date: "2026-03-22"
+    description: "Supermercado Carrefour"
+    postings:
+      - account: "despesas:alimentacao:mercado"
+        amount: "412.30"
+        tags: []
+      - account: "ativos:banco:nubank"
+        amount: "-412.30"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000046"
+    date: "2026-03-24"
+    description: "Academia Smart Fit"
+    postings:
+      - account: "despesas:saude:academia"
+        amount: "89.90"
+        tags: [tipo:fixo]
+      - account: "ativos:banco:nubank"
+        amount: "-89.90"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000047"
+    date: "2026-03-25"
+    description: "Almoço de trabalho"
+    postings:
+      - account: "despesas:alimentacao:restaurante"
+        amount: "62.00"
+        tags: [tipo:trabalho]
+      - account: "ativos:carteira"
+        amount: "-62.00"
+        tags: []
+
+  - id: "demo-0000-0000-0000-000000000048"
+    date: "2026-03-27"
+    description: "Revisão carro oficina"
+    postings:
+      - account: "despesas:transporte:manutencao"
+        amount: "385.00"
+        tags: [veiculo:civic]
+      - account: "ativos:banco:nubank"
+        amount: "-385.00"
+        tags: []

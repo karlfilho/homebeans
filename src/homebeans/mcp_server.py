@@ -596,6 +596,52 @@ def edit_transaction(
 
 
 @mcp.tool()
+def enter_demo_mode() -> str:
+    """
+    Ativa o modo de demonstração do HomeBeans.
+
+    Neste modo todas as operações (leitura, escrita, edição, exclusão) são
+    feitas em um ledger fictício separado, pré-carregado com transações de
+    exemplo. O ledger pessoal real não é acessado nem modificado.
+
+    Use exit_demo_mode() ao final para encerrar a demonstração e descartar
+    todas as alterações feitas durante ela.
+    """
+    from homebeans.demo_mode import enter_demo
+
+    result = enter_demo()
+    if result != "ok":
+        return result
+    return (
+        "Modo de demonstração ativado!\n"
+        "- Todas as operações agora usam um ledger fictício de exemplo.\n"
+        "- Seu ledger pessoal esta protegido e nao sera modificado.\n"
+        "- Use exit_demo_mode() ao final para encerrar a demonstracao."
+    )
+
+
+@mcp.tool()
+def exit_demo_mode() -> str:
+    """
+    Encerra o modo de demonstração e volta ao ledger real.
+
+    O ledger de demonstração é descartado — todas as transações adicionadas,
+    editadas ou removidas durante a demonstração são perdidas. O ledger
+    pessoal permanece exatamente como estava antes da demonstração.
+    """
+    from homebeans.demo_mode import exit_demo
+
+    result = exit_demo()
+    if result != "ok":
+        return result
+    return (
+        "Modo de demonstracao encerrado.\n"
+        "- Ledger de demo descartado (transacoes ficticias removidas).\n"
+        "- Voltando ao ledger pessoal normalmente."
+    )
+
+
+@mcp.tool()
 def clear_journal(confirmation: str) -> str:
     """
     Apaga todas as transações do livro-razão (journal) atual.
