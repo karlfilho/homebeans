@@ -94,6 +94,8 @@ transactions:
 | `get_cashflow(period)` | Variação líquida de ativos por período |
 | `generate_html_report(output_filename)` | Exporta gráfico Plotly em HTML |
 | `clear_journal(confirmation)` | Apaga tudo — requer `"CONFIRMO_LIMPEZA_TOTAL"` |
+| `enter_demo_mode()` | Ativa modo demo: redireciona para ledger fictício pré-carregado |
+| `exit_demo_mode()` | Encerra modo demo e descarta o ledger fictício |
 
 Parâmetro `period` aceita: `"day"`, `"week"`, `"month"`, `"year"`, `"all"` (padrão: `"month"`).
 
