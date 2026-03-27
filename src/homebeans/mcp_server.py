@@ -1,29 +1,46 @@
-import os
 from datetime import datetime
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
+from homebeans.config import get_ledger_path
 from homebeans.models import Posting, Transaction
-from homebeans.reports import balance_report, format_ascii_tree, generate_income_statement, generate_balance_sheet, generate_cashflow
+from homebeans.reports import (
+    balance_report,
+    filter_by_dates,
+    format_ascii_tree,
+    generate_account_statement,
+    generate_balance_sheet,
+    generate_cashflow,
+    generate_income_statement,
+    generate_ledger_stats,
+    generate_spending_summary,
+)
 from homebeans.storage import load_ledger, save_ledger
-from core.suggester import extract_all_accounts
+from homebeans.suggester import extract_all_accounts
 
 load_dotenv()
 
 mcp = FastMCP("homebeans")
 
-def _get_ledger_path() -> Path:
-    path = os.getenv("LEDGER_PATH", "./data/ledger.yaml")
-    return Path(path)
-
 @mcp.tool()
-def get_balance() -> str:
-    """Retorna o balanço financeiro atual agrupado por contas do aplicativo HomeBeans."""
-    ledger_path = _get_ledger_path()
+def get_balance(account_filter: str | None = None) -> str:
+    """
+    Retorna o saldo atual das contas do HomeBeans.
+
+    Sem filtro, exibe todas as contas. Com filtro, exibe apenas as contas
+    cujo nome contenha a string informada (case-insensitive). Útil para
+    consultas como "saldo de ativos", "saldo de despesas:alimentacao" etc.
+
+    O cálculo é feito localmente — soma de todos os postings por conta.
+
+    Args:
+        account_filter (str): Substring para filtrar contas (opcional).
+            Ex: "ativos", "despesas:transporte", "banco".
+    """
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -33,7 +50,15 @@ def get_balance() -> str:
     if not report:
         return "Nenhuma conta possui saldo no momento."
 
-    output = ["Balanço de Contas HomeBeans:"]
+    # Aplica o filtro localmente se fornecido
+    if account_filter:
+        acc_lower = account_filter.lower()
+        report = [(acc, bal) for acc, bal in report if acc_lower in acc.lower()]
+        if not report:
+            return f"Nenhuma conta encontrada com '{account_filter}'."
+
+    header = f"Balanço de Contas HomeBeans" + (f" (filtro: '{account_filter}'):" if account_filter else ":")
+    output = [header]
     for account, bal in report:
         output.append(f"- {account}: {bal}")
     return "\n".join(output)
@@ -60,7 +85,7 @@ def get_transactions(
         description_filter (str): Busca parcial na descrição da transação (case-insensitive).
         tag_filter (str): Filtra transações contendo uma tag que dê match nesta string (case-insensitive).
     """
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -116,8 +141,83 @@ def get_transactions(
 
     output = [f"Resultados ({len(filtered)} de um histórico correspondente):"]
     for t in reversed(filtered):
-        postings_str = ", ".join(f"[{p.account}: {p.amount}" + (f" tags: {p.tags}" if p.tags else "") + "]" for p in t.postings)
-        output.append(f"Data: {t.date} | Desc: {t.description} | {postings_str}")
+        postings_str = ", ".join(
+            f"[{p.account}: {p.amount}" + (f" tags: {p.tags}" if p.tags else "") + "]"
+            for p in t.postings
+        )
+        # ID exibido para permitir referência precisa em delete/edit
+        output.append(f"ID: {t.id} | Data: {t.date} | Desc: {t.description} | {postings_str}")
+
+    return "\n".join(output)
+
+@mcp.tool()
+def get_recent_transactions(
+    limit: int = 10,
+    account_filter: str | None = None,
+    tag_filter: str | None = None,
+) -> str:
+    """
+    Retorna as últimas N transações do ledger, da mais recente para a mais antiga.
+    Ideal para comandos como "mostre as últimas 5 transações" ou
+    "últimas 10 transações da conta ativos:banco".
+
+    A filtragem é feita localmente — a LLM não precisa calcular nada.
+
+    Args:
+        limit (int): Número de transações a retornar. Padrão: 10.
+        account_filter (str): Se fornecido, retorna apenas transações onde pelo menos
+            um posting contenha esta string na conta (case-insensitive).
+            Ex: "ativos:banco", "despesas:alimentacao", "despesas" (filtra toda a raiz).
+        tag_filter (str): Se fornecido, retorna apenas transações que contenham
+            uma tag que corresponda a esta string (case-insensitive).
+            Ex: "veiculo:meteor", "viagem".
+    """
+    ledger_path = get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    if not transactions:
+        return "Nenhuma transação encontrada no ledger."
+
+    # Aplica filtros opcionais de conta e tag (todo o processamento é local)
+    filtered = transactions
+    if account_filter:
+        acc_lower = account_filter.lower()
+        filtered = [
+            t for t in filtered
+            if any(acc_lower in p.account.lower() for p in t.postings)
+        ]
+    if tag_filter:
+        tag_lower = tag_filter.lower()
+        filtered = [
+            t for t in filtered
+            if any(
+                tag_lower in tag.lower()
+                for p in t.postings
+                for tag in p.tags
+            )
+        ]
+
+    if not filtered:
+        return "Nenhuma transação encontrada com os filtros informados."
+
+    # Pega as últimas `limit` e exibe da mais recente para a mais antiga
+    recent = filtered[-limit:]
+    filtro_desc = ""
+    if account_filter:
+        filtro_desc += f" | conta: '{account_filter}'"
+    if tag_filter:
+        filtro_desc += f" | tag: '{tag_filter}'"
+
+    output = [f"Últimas {len(recent)} transações{filtro_desc}:"]
+    for t in reversed(recent):
+        postings_str = ", ".join(
+            f"[{p.account}: {p.amount}" + (f" tags: {p.tags}" if p.tags else "") + "]"
+            for p in t.postings
+        )
+        output.append(f"ID: {t.id} | Data: {t.date} | Desc: {t.description} | {postings_str}")
 
     return "\n".join(output)
 
@@ -173,7 +273,7 @@ def add_transaction(date_str: str, description: str, postings: list[dict[str, An
     except Exception as e:
         return f"Erro na validação da transação (partida dobrada etc): {e}"
 
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     # Cria diretório caso não exista
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     
@@ -187,12 +287,13 @@ def add_transaction(date_str: str, description: str, postings: list[dict[str, An
 
     transactions.append(t)
     save_ledger(ledger_path, transactions)
-    return f"Transação adicionada com sucesso em {date_str} - {description}."
+    # Retorna o ID para que o usuário/IA possa referenciar a transação futuramente
+    return f"Transação adicionada com sucesso. ID: {t.id} | {date_str} - {description}."
 
 @mcp.tool()
 def get_accounts_tree() -> str:
     """Retorna uma árvore ASCII hierárquica completa de todas as contas em uso no HomeBeans."""
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -210,7 +311,7 @@ def get_accounts_tree() -> str:
 @mcp.tool()
 def get_tags_list() -> str:
     """Retorna uma lista de todas as tags (chave:valor) atualmente em uso no HomeBeans, ordenadas de forma única."""
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -234,22 +335,118 @@ def get_tags_list() -> str:
         output.append(f"- {tag}")
     return "\n".join(output)
 
-@mcp.tool()
-def delete_transaction(date_str: str, description: str) -> str:
-    """
-    Remove uma transação específica do ledger baseando-se na data (YYYY-MM-DD) e descrição exata (case-insensitive).
-    Dica: use get_transactions primeiro para listar os registros recentes e obter a data e descrição corretas.
-    
-    Args:
-        date_str (str): A data exata da transação (ex: 2024-01-15).
-        description (str): A descrição da transação.
-    """
-    try:
-        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return "Erro: Data deve estar no formato YYYY-MM-DD."
 
-    ledger_path = _get_ledger_path()
+@mcp.tool()
+def get_ledger_stats() -> str:
+    """
+    Retorna estatísticas gerais do ledger: total de transações, período coberto,
+    número de contas e tags distintas, e média de transações por mês.
+
+    Ideal para uso no início de uma conversa para obter o contexto do ledger
+    sem precisar carregar ou analisar todas as transações manualmente.
+    Todo o cálculo é feito localmente.
+    """
+    ledger_path = get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    return generate_ledger_stats(transactions)
+
+
+@mcp.tool()
+def get_account_statement(
+    account: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
+    """
+    Retorna o extrato detalhado de uma conta com saldo acumulado linha a linha,
+    semelhante a um extrato bancário.
+
+    Aceita filtro parcial: "ativos:banco" captura todas as subcontas de banco.
+    Útil para responder "o que passou pelo Nubank em março?" sem a LLM precisar
+    somar nada — todo o cálculo é feito localmente.
+
+    Args:
+        account (str): Nome ou prefixo da conta. Ex: "ativos:banco", "despesas:moradia".
+        start_date (str): Data inicial YYYY-MM-DD (opcional).
+        end_date (str): Data final YYYY-MM-DD (opcional).
+    """
+    ledger_path = get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    try:
+        dt_start, dt_end = _parse_report_dates(start_date, end_date)
+    except ValueError as e:
+        return f"Erro: {e}"
+
+    return generate_account_statement(transactions, account, dt_start, dt_end)
+
+
+@mcp.tool()
+def get_spending_summary(
+    period: str = "month",
+    start_date: str | None = None,
+    end_date: str | None = None,
+    top_n: int = 10,
+) -> str:
+    """
+    Retorna os maiores gastos por categoria de despesa (2º nível da conta),
+    com valor total e percentual sobre o total de despesas do período.
+
+    Exemplo: "despesas:alimentacao: 450.00 (28.1%)"
+
+    Ideal para responder "onde estou gastando mais?" com cálculo 100% local.
+
+    Args:
+        period (str): Agrupamento. Opções: 'day', 'week', 'month', 'year', 'all'. Padrão: 'month'.
+        start_date (str): Data inicial YYYY-MM-DD (opcional).
+        end_date (str): Data final YYYY-MM-DD (opcional).
+        top_n (int): Número máximo de categorias por período. Padrão: 10.
+    """
+    ledger_path = get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    try:
+        dt_start, dt_end = _parse_report_dates(start_date, end_date)
+    except ValueError as e:
+        return f"Erro: {e}"
+
+    return generate_spending_summary(transactions, period, dt_start, dt_end, top_n)
+
+
+@mcp.tool()
+def delete_transaction(
+    transaction_id: str | None = None,
+    date_str: str | None = None,
+    description: str | None = None,
+) -> str:
+    """
+    Remove uma transação do ledger.
+
+    Formas de localizar a transação (use a mais precisa disponível):
+    1. Por ID (preferido): passe apenas `transaction_id` — busca exata, sem ambiguidade.
+    2. Por data + descrição (fallback): passe `date_str` (YYYY-MM-DD) e `description`.
+
+    Dica: use get_transactions para obter o ID antes de remover.
+
+    Args:
+        transaction_id (str): ID único da transação (preferido).
+        date_str (str): Data da transação no formato YYYY-MM-DD (fallback).
+        description (str): Descrição exata da transação (fallback).
+    """
+    if not transaction_id and not (date_str and description):
+        return "Erro: forneça `transaction_id` ou `date_str` + `description`."
+
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -258,53 +455,74 @@ def delete_transaction(date_str: str, description: str) -> str:
     if not transactions:
         return "Erro: Ledger está vazio."
 
-    target_desc = description.strip().lower()
-    matching_idx = -1
-    
-    # Busca a primeira transação que casa com data e descrição
-    for i, t in enumerate(transactions):
-        if t.date == dt and t.description.strip().lower() == target_desc:
-            matching_idx = i
-            break
+    if transaction_id:
+        # Busca direta por ID — precisa e sem ambiguidade
+        matching_indices = [i for i, t in enumerate(transactions) if t.id == transaction_id]
+        if not matching_indices:
+            return f"Erro: Nenhuma transação encontrada com ID '{transaction_id}'."
+    else:
+        # Fallback por data + descrição
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d").date()  # type: ignore[arg-type]
+        except ValueError:
+            return "Erro: Data deve estar no formato YYYY-MM-DD."
+        target_desc = description.strip().lower()  # type: ignore[union-attr]
+        matching_indices = [
+            i for i, t in enumerate(transactions)
+            if t.date == dt and t.description.strip().lower() == target_desc
+        ]
+        if not matching_indices:
+            return f"Erro: Nenhuma transação encontrada em {date_str} com a descrição '{description}'."
 
-    if matching_idx == -1:
-        return f"Erro: Nenhuma transação encontrada no dia {date_str} com a descrição '{description}'."
+    duplicates_warning = ""
+    if len(matching_indices) > 1:
+        duplicates_warning = f" Atenção: {len(matching_indices)} transações correspondiam; apenas a primeira foi removida."
 
-    deleted = transactions.pop(matching_idx)
+    deleted = transactions.pop(matching_indices[0])
     save_ledger(ledger_path, transactions)
-    return f"Transação '{deleted.description}' do dia {deleted.date} removida com sucesso."
+    return f"Transação '{deleted.description}' do dia {deleted.date} (ID: {deleted.id}) removida com sucesso.{duplicates_warning}"
 
 @mcp.tool()
 def edit_transaction(
-    date_str: str, 
-    description: str,
     new_date_str: str | None = None,
     new_description: str | None = None,
-    new_postings: list[dict[str, Any]] | None = None
+    new_postings: list[dict[str, Any]] | None = None,
+    transaction_id: str | None = None,
+    date_str: str | None = None,
+    description: str | None = None,
 ) -> str:
     """
-    Edita uma transação existente no ledger. Localiza a transação pela data e descrição originais.
-    Apenas passe os campos 'new_...' que você deseja alterar.
-    
-    REGRA DE NEGÓCIO - PARTIDA DOBRADA (REQUISITO CRÍTICO):
-    Se for alterar os postings (para corrigir um valor, por exemplo), você deve fornecer a lista 
-    INTEIRA balanceada novamente nos 'new_postings', cuja soma de valores seja 0.
-    Se o usuário pedir "agora o mercado foi R$ 60 em vez de R$ 50", lembre-se de atualizar
-    a contrapartida (ex: o saldo negativo de ativos:banco) proporcionalmente e avise-o disso.
-    """
-    try:
-        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return "Erro: A data atual deve estar no formato YYYY-MM-DD."
+    Edita uma transação existente no ledger. Apenas passe os campos 'new_...' que deseja alterar.
 
-    new_dt = dt
+    Formas de localizar a transação (use a mais precisa disponível):
+    1. Por ID (preferido): passe apenas `transaction_id`.
+    2. Por data + descrição (fallback): passe `date_str` (YYYY-MM-DD) e `description`.
+
+    REGRA DE NEGÓCIO - PARTIDA DOBRADA (REQUISITO CRÍTICO):
+    Se alterar os postings, forneça a lista INTEIRA e balanceada em `new_postings`.
+    A soma de todos os `amount` DEVE ser zero. Lembre-se de atualizar a contrapartida
+    proporcionalmente (ex: ao ajustar uma despesa, ajuste também o crédito em ativos).
+
+    Args:
+        transaction_id (str): ID único da transação (preferido para localização).
+        date_str (str): Data atual da transação YYYY-MM-DD (fallback).
+        description (str): Descrição atual da transação (fallback).
+        new_date_str (str): Nova data (opcional).
+        new_description (str): Nova descrição (opcional).
+        new_postings (list): Lista completa e balanceada de postings (opcional).
+    """
+    if not transaction_id and not (date_str and description):
+        return "Erro: forneça `transaction_id` ou `date_str` + `description`."
+
     if new_date_str:
         try:
             new_dt = datetime.strptime(new_date_str, "%Y-%m-%d").date()
         except ValueError:
             return "Erro: A nova data deve estar no formato YYYY-MM-DD."
+    else:
+        new_dt = None
 
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -313,17 +531,33 @@ def edit_transaction(
     if not transactions:
         return "Erro: Ledger está vazio."
 
-    target_desc = description.strip().lower()
-    matching_idx = -1
-    for i, t in enumerate(transactions):
-        if t.date == dt and t.description.strip().lower() == target_desc:
-            matching_idx = i
-            break
+    if transaction_id:
+        # Busca direta por ID — precisa e sem ambiguidade
+        matching_indices = [i for i, t in enumerate(transactions) if t.id == transaction_id]
+        if not matching_indices:
+            return f"Erro: Nenhuma transação encontrada com ID '{transaction_id}'."
+    else:
+        # Fallback por data + descrição
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d").date()  # type: ignore[arg-type]
+        except ValueError:
+            return "Erro: A data deve estar no formato YYYY-MM-DD."
+        target_desc = description.strip().lower()  # type: ignore[union-attr]
+        matching_indices = [
+            i for i, t in enumerate(transactions)
+            if t.date == dt and t.description.strip().lower() == target_desc
+        ]
+        if not matching_indices:
+            return f"Erro: Nenhuma transação encontrada em {date_str} com a descrição '{description}'."
 
-    if matching_idx == -1:
-        return f"Erro: Nenhuma transação encontrada na data {date_str} com a descrição '{description}'."
+    duplicates_warning = ""
+    if len(matching_indices) > 1:
+        duplicates_warning = f" Atenção: {len(matching_indices)} transações correspondiam; apenas a primeira foi editada."
 
+    matching_idx = matching_indices[0]
     t_edit = transactions[matching_idx]
+    # Usa a data original se nenhuma nova data foi fornecida
+    new_dt = new_dt or t_edit.date
     
     final_desc = new_description if new_description else t_edit.description
     final_postings = t_edit.postings
@@ -336,8 +570,8 @@ def edit_transaction(
             try:
                 amt = Decimal(str(p_dict["amount"]))
                 posting = Posting(
-                    account=p_dict["account"], 
-                    amount=amt, 
+                    account=p_dict["account"],
+                    amount=amt,
                     tags=p_dict.get("tags", [])
                 )
                 postings_list.append(posting)
@@ -346,43 +580,20 @@ def edit_transaction(
         final_postings = postings_list
 
     try:
-        valid_t = Transaction(date=new_dt, description=final_desc, postings=final_postings)
+        # Preserva o ID original — edição não gera um novo ID
+        valid_t = Transaction(
+            id=t_edit.id,
+            date=new_dt,
+            description=final_desc,
+            postings=final_postings,
+        )
         transactions[matching_idx] = valid_t
     except Exception as e:
-        return f"Erro de validação na nova transação (provavelmente o saldo não zera): {e}"
+        return f"Erro de validação na nova transação (a soma dos postings deve ser zero): {e}"
 
     save_ledger(ledger_path, transactions)
-    return f"Transação editada com sucesso! Atualizada para: {valid_t.date} - {valid_t.description}."
+    return f"Transação editada com sucesso! ID: {valid_t.id} | {valid_t.date} - {valid_t.description}.{duplicates_warning}"
 
-@mcp.tool()
-def generate_html_report(output_filename: str = "balance_chart.html") -> str:
-    """
-    Gera um gráfico interativo (HTML) do balanço financeiro atual e o salva no disco.
-    Retorna o caminho absoluto do arquivo para o usuário poder abrir no navegador.
-    """
-    import os
-    from homebeans.viz import export_balance_chart
-    
-    ledger_path = _get_ledger_path()
-    try:
-        transactions = load_ledger(ledger_path)
-    except Exception as e:
-        return f"Erro ao carregar transações: {e}"
-
-    if not transactions:
-        return "Erro: Ledger está vazio, não há dados para gerar gráfico."
-
-    report = balance_report(transactions)
-    if not report:
-        return "Erro: Nenhuma conta possui saldo para gerar gráfico."
-
-    balances = {acc: float(bal) for acc, bal in report}
-    out_path = Path(os.getcwd()) / output_filename
-    try:
-        export_balance_chart(balances, out_path)
-        return f"Relatório gráfico gerado com sucesso! Arquivo salvo em: {out_path.absolute()}"
-    except Exception as e:
-        return f"Erro ao gerar gráfico: {e}"
 
 @mcp.tool()
 def clear_journal(confirmation: str) -> str:
@@ -394,7 +605,7 @@ def clear_journal(confirmation: str) -> str:
     if confirmation != "CONFIRMO_LIMPEZA_TOTAL":
         return "Erro: Limpeza cancelada. Você deve passar a string exata 'CONFIRMO_LIMPEZA_TOTAL'."
         
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         _ = load_ledger(ledger_path)
     except Exception as e:
@@ -425,53 +636,119 @@ def homebeans_guide() -> str:
         "Sempre comunique o usuário detalhadamente o que vai contabilizar prestando atenção à consistência total."
     )
 
+def _parse_report_dates(start_date: str | None, end_date: str | None):
+    """Converte strings YYYY-MM-DD em objetos date para os relatórios.
+
+    Retorna (dt_start, dt_end) ou lança ValueError com mensagem amigável.
+    """
+    from datetime import date as date_type
+    dt_start = None
+    dt_end = None
+    try:
+        if start_date:
+            dt_start = datetime.strptime(start_date, "%Y-%m-%d").date()
+        if end_date:
+            dt_end = datetime.strptime(end_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError("Datas devem estar no formato YYYY-MM-DD.")
+    return dt_start, dt_end
+
+
 @mcp.tool()
-def get_income_statement(period: str = "month") -> str:
+def get_income_statement(
+    period: str = "month",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
     """
-    Retorna o DRE (Demonstração do Resultado / Income Statement).
+    Retorna o DRE (Demonstração do Resultado do Exercício).
     Foca apenas em Entradas e Despesas, mostrando o Lucro/Prejuízo Líquido por período.
-    
+
     Args:
-        period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
+        period (str): Agrupamento. Opções: 'day', 'week', 'month', 'year', 'all'. Padrão: 'month'.
+        start_date (str): Data inicial do recorte, formato YYYY-MM-DD (opcional).
+        end_date (str): Data final do recorte, formato YYYY-MM-DD (opcional).
     """
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
         return f"Erro ao carregar transações: {e}"
-        
+
+    try:
+        dt_start, dt_end = _parse_report_dates(start_date, end_date)
+    except ValueError as e:
+        return f"Erro: {e}"
+
+    # Filtragem local antes de passar para o relatório
+    transactions = filter_by_dates(transactions, dt_start, dt_end)
+    if not transactions:
+        return "Nenhuma transação encontrada no período informado."
+
     return generate_income_statement(transactions, period)
 
-@mcp.tool()
-def get_balance_sheet(period: str = "month") -> str:
-    """
-    Retorna o Balanço Patrimonial (Balance Sheet) acumulativo ao longo do tempo.
-    Foca no acúmulo de Ativos, Passivos e Patrimônio. Permite analisar a evolução do capital.
-    
-    Args:
-        period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
-    """
-    ledger_path = _get_ledger_path()
-    try:
-        transactions = load_ledger(ledger_path)
-    except Exception as e:
-        return f"Erro ao carregar transações: {e}"
-        
-    return generate_balance_sheet(transactions, period)
 
 @mcp.tool()
-def get_cashflow(period: str = "month") -> str:
+def get_balance_sheet(
+    period: str = "month",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
     """
-    Retorna o relatório de Fluxo de Caixa (Cashflow) avaliando apenas a variação líquida dos Ativos em cada período.
-    
+    Retorna o Balanço Patrimonial acumulativo ao longo do tempo.
+    Foca no acúmulo de Ativos, Passivos e Patrimônio.
+
     Args:
-        period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
+        period (str): Agrupamento. Opções: 'day', 'week', 'month', 'year', 'all'. Padrão: 'month'.
+        start_date (str): Data inicial do recorte, formato YYYY-MM-DD (opcional).
+        end_date (str): Data final do recorte, formato YYYY-MM-DD (opcional).
     """
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
         return f"Erro ao carregar transações: {e}"
-        
+
+    try:
+        dt_start, dt_end = _parse_report_dates(start_date, end_date)
+    except ValueError as e:
+        return f"Erro: {e}"
+
+    transactions = filter_by_dates(transactions, dt_start, dt_end)
+    if not transactions:
+        return "Nenhuma transação encontrada no período informado."
+
+    return generate_balance_sheet(transactions, period)
+
+
+@mcp.tool()
+def get_cashflow(
+    period: str = "month",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
+    """
+    Retorna o Fluxo de Caixa — variação líquida dos Ativos por período.
+
+    Args:
+        period (str): Agrupamento. Opções: 'day', 'week', 'month', 'year', 'all'. Padrão: 'month'.
+        start_date (str): Data inicial do recorte, formato YYYY-MM-DD (opcional).
+        end_date (str): Data final do recorte, formato YYYY-MM-DD (opcional).
+    """
+    ledger_path = get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    try:
+        dt_start, dt_end = _parse_report_dates(start_date, end_date)
+    except ValueError as e:
+        return f"Erro: {e}"
+
+    transactions = filter_by_dates(transactions, dt_start, dt_end)
+    if not transactions:
+        return "Nenhuma transação encontrada no período informado."
+
     return generate_cashflow(transactions, period)
 

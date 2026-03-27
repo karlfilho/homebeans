@@ -15,8 +15,8 @@ def test_transaction_balanced_accepted():
         date=date(2024, 1, 1),
         description="Venda",
         postings=[
-            Posting(account="assets:bank", amount=Decimal("100")),
-            Posting(account="income:sales", amount=Decimal("-100")),
+            Posting(account="ativos:banco", amount=Decimal("100")),
+            Posting(account="entradas:vendas", amount=Decimal("-100")),
         ],
     )
     assert len(t.postings) == 2
@@ -30,8 +30,8 @@ def test_transaction_unbalanced_raises():
             date=date(2024, 1, 1),
             description="Venda inválida",
             postings=[
-                Posting(account="assets:bank", amount=Decimal("100")),
-                Posting(account="income:sales", amount=Decimal("-50")),
+                Posting(account="ativos:banco", amount=Decimal("100")),
+                Posting(account="entradas:vendas", amount=Decimal("-50")),
             ],
         )
     assert "desbalanceada" in str(exc_info.value)
@@ -44,7 +44,7 @@ def test_transaction_single_posting_rejected():
             date=date(2024, 1, 1),
             description="Único posting",
             postings=[
-                Posting(account="assets:bank", amount=Decimal("100")),
+                Posting(account="ativos:banco", amount=Decimal("100")),
             ],
         )
     assert "pelo menos 2" in str(exc_info.value)
@@ -56,8 +56,8 @@ def test_transaction_decimal_values():
         date=date(2024, 1, 1),
         description="Compra com centavos",
         postings=[
-            Posting(account="expenses:food", amount=Decimal("19.99")),
-            Posting(account="assets:bank", amount=Decimal("-19.99")),
+            Posting(account="despesas:alimentacao", amount=Decimal("19.99")),
+            Posting(account="ativos:banco", amount=Decimal("-19.99")),
         ],
     )
     assert sum(p.amount for p in t.postings) == Decimal("0")
@@ -66,7 +66,7 @@ def test_transaction_decimal_values():
 def test_posting_amount_zero_rejected():
     """Posting com amount zero é rejeitado."""
     with pytest.raises(ValidationError):
-        Posting(account="assets:bank", amount=Decimal("0"))
+        Posting(account="ativos:banco", amount=Decimal("0"))
 
 
 def test_posting_empty_account_rejected():
@@ -81,9 +81,9 @@ def test_transaction_three_postings_balanced():
         date=date(2024, 1, 1),
         description="Dividir despesa",
         postings=[
-            Posting(account="expenses:food", amount=Decimal("100")),
-            Posting(account="assets:bank:alice", amount=Decimal("-60")),
-            Posting(account="assets:bank:bob", amount=Decimal("-40")),
+            Posting(account="despesas:alimentacao", amount=Decimal("100")),
+            Posting(account="ativos:banco:alice", amount=Decimal("-60")),
+            Posting(account="ativos:banco:bob", amount=Decimal("-40")),
         ],
     )
     assert sum(p.amount for p in t.postings) == 0
