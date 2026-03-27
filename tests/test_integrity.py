@@ -14,8 +14,8 @@ def test_debits_equal_credits():
         date=date(2024, 1, 15),
         description="Teste débito=crédito",
         postings=[
-            Posting(account="assets:bank", amount=debits),
-            Posting(account="income:salary", amount=credits),
+            Posting(account="ativos:banco", amount=debits),
+            Posting(account="entradas:salario", amount=credits),
         ],
     )
     total_debits = sum(p.amount for p in t.postings if p.amount > 0)
@@ -30,9 +30,9 @@ def test_complex_transaction_balance():
         date=date(2024, 2, 1),
         description="Pagamento de conta com split",
         postings=[
-            Posting(account="expenses:rent", amount=Decimal("1000")),
-            Posting(account="expenses:utilities", amount=Decimal("200")),
-            Posting(account="assets:bank", amount=Decimal("-1200")),
+            Posting(account="despesas:moradia:aluguel", amount=Decimal("1000")),
+            Posting(account="despesas:moradia:agua", amount=Decimal("200")),
+            Posting(account="ativos:banco", amount=Decimal("-1200")),
         ],
     )
     assert sum(p.amount for p in t.postings) == 0

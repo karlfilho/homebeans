@@ -537,25 +537,6 @@ def report(
     console.print(table)
 
 
-@app.command()
-def chart(
-    output: Path = typer.Option(
-        Path("balance_chart.html"),
-        "--output",
-        "-o",
-        help="Arquivo HTML de saída",
-    ),
-) -> None:
-    """Gera gráfico de saldo por conta (HTML)."""
-    from homebeans.viz import export_balance_chart
-
-    ledger_path = _get_ledger_path()
-    transactions = load_ledger(ledger_path)
-    report = balance_report(transactions)
-    balances = {acc: float(bal) for acc, bal in report}
-    export_balance_chart(balances, output)
-    console.print(f"[green]Gráfico exportado para {output}[/green]")
-
 
 @app.command()
 def mcp() -> None:
