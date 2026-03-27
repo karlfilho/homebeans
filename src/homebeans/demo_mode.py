@@ -10,9 +10,11 @@ from pathlib import Path
 # Estado em memória — válido enquanto o servidor MCP estiver rodando
 _demo_active: bool = False
 
-# Caminhos relativos ao diretório de trabalho do processo
-_DEMO_TEMPLATE_PATH = Path("./data/demo_ledger_template.yaml")
-_DEMO_WORKING_PATH = Path("./data/demo_ledger.yaml")
+# Caminhos absolutos baseados na localização deste arquivo (src/homebeans/demo_mode.py)
+# Isso garante que os paths funcionam independentemente do CWD do processo.
+_PROJECT_ROOT = Path(__file__).parent.parent.parent
+_DEMO_TEMPLATE_PATH = _PROJECT_ROOT / "data" / "demo_ledger_template.yaml"
+_DEMO_WORKING_PATH = _PROJECT_ROOT / "data" / "demo_ledger.yaml"
 
 
 def is_demo_active() -> bool:
