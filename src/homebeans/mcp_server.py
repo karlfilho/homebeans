@@ -121,6 +121,77 @@ def get_transactions(
     return "\n".join(output)
 
 @mcp.tool()
+def get_recent_transactions(
+    limit: int = 10,
+    account_filter: str | None = None,
+    tag_filter: str | None = None,
+) -> str:
+    """
+    Retorna as últimas N transações do ledger, da mais recente para a mais antiga.
+    Ideal para comandos como "mostre as últimas 5 transações" ou
+    "últimas 10 transações da conta ativos:banco".
+
+    A filtragem é feita localmente — a LLM não precisa calcular nada.
+
+    Args:
+        limit (int): Número de transações a retornar. Padrão: 10.
+        account_filter (str): Se fornecido, retorna apenas transações onde pelo menos
+            um posting contenha esta string na conta (case-insensitive).
+            Ex: "ativos:banco", "despesas:alimentacao", "despesas" (filtra toda a raiz).
+        tag_filter (str): Se fornecido, retorna apenas transações que contenham
+            uma tag que corresponda a esta string (case-insensitive).
+            Ex: "veiculo:meteor", "viagem".
+    """
+    ledger_path = get_ledger_path()
+    try:
+        transactions = load_ledger(ledger_path)
+    except Exception as e:
+        return f"Erro ao carregar transações: {e}"
+
+    if not transactions:
+        return "Nenhuma transação encontrada no ledger."
+
+    # Aplica filtros opcionais de conta e tag (todo o processamento é local)
+    filtered = transactions
+    if account_filter:
+        acc_lower = account_filter.lower()
+        filtered = [
+            t for t in filtered
+            if any(acc_lower in p.account.lower() for p in t.postings)
+        ]
+    if tag_filter:
+        tag_lower = tag_filter.lower()
+        filtered = [
+            t for t in filtered
+            if any(
+                tag_lower in tag.lower()
+                for p in t.postings
+                for tag in p.tags
+            )
+        ]
+
+    if not filtered:
+        return "Nenhuma transação encontrada com os filtros informados."
+
+    # Pega as últimas `limit` e exibe da mais recente para a mais antiga
+    recent = filtered[-limit:]
+    filtro_desc = ""
+    if account_filter:
+        filtro_desc += f" | conta: '{account_filter}'"
+    if tag_filter:
+        filtro_desc += f" | tag: '{tag_filter}'"
+
+    output = [f"Últimas {len(recent)} transações{filtro_desc}:"]
+    for t in reversed(recent):
+        postings_str = ", ".join(
+            f"[{p.account}: {p.amount}" + (f" tags: {p.tags}" if p.tags else "") + "]"
+            for p in t.postings
+        )
+        output.append(f"ID: {t.id} | Data: {t.date} | Desc: {t.description} | {postings_str}")
+
+    return "\n".join(output)
+
+@mcp.tool()
 def add_transaction(date_str: str, description: str, postings: list[dict[str, Any]]) -> str:
     """
     Adiciona uma nova transação financeira ao ledger Homebeans.
