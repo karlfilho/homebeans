@@ -11,10 +11,11 @@ from rich.prompt import Confirm
 from rich.table import Table
 from rich.tree import Tree
 
-from core.suggester import extract_all_accounts, suggest_for_description
+from homebeans.config import get_ledger_path
 from homebeans.models import Posting, Transaction
 from homebeans.reports import balance_report
 from homebeans.storage import load_ledger, save_ledger
+from homebeans.suggester import extract_all_accounts, suggest_for_description
 
 load_dotenv()
 
@@ -24,26 +25,19 @@ app = typer.Typer(
 )
 console = Console()
 
-
-def _get_ledger_path() -> Path:
-    import os
-    path = os.getenv("LEDGER_PATH", "./data/ledger.yaml")
-    return Path(path)
+ACCOUNT_ROOTS = {
+    "ativos": "ativos",
+    "passivos": "passivos",
+    "despesas": "despesas",
+    "entradas": "entradas",
+    "patrimônio": "patrimônio",
+    "patrimonio": "patrimônio",
+}
 
 
 def _account_type(account: str) -> str:
     root = account.split(":", 1)[0].strip().lower()
-    if root in {"assets", "ativos"}:
-        return "ativos"
-    if root in {"liabilities", "passivos"}:
-        return "passivos"
-    if root in {"expenses", "despesas"}:
-        return "despesas"
-    if root in {"income", "receita", "receitas", "entradas"}:
-        return "entradas"
-    if root in {"equity", "patrimonio", "patrimônio"}:
-        return "patrimônio"
-    return "outras"
+    return ACCOUNT_ROOTS.get(root, "outras")
 
 
 def _build_account_tree(accounts: list[str]) -> Tree:
@@ -63,7 +57,7 @@ def _build_account_tree(accounts: list[str]) -> Tree:
 @app.command("journal-clear")
 def journal_clear() -> None:
     """Limpa o journal (remove todas as transações) com confirmação."""
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     console.print(
         Panel(
             "[bold red]ATENÇÃO[/bold red]\n"
@@ -76,7 +70,6 @@ def journal_clear() -> None:
         console.print("[yellow]Operação cancelada.[/yellow]")
         raise typer.Exit(0)
 
-    # Valida se o journal atual é carregável antes de sobrescrever.
     try:
         _ = load_ledger(ledger_path)
     except Exception as e:
@@ -94,11 +87,12 @@ def accounts(
     a: bool = typer.Option(False, "--a", help="Somente ativos"),
     p: bool = typer.Option(False, "--p", help="Somente passivos"),
     d: bool = typer.Option(False, "--d", help="Somente despesas"),
-    r: bool = typer.Option(False, "--r", help="Somente receita"),
+    r: bool = typer.Option(False, "--r", help="Somente entradas"),
+    e: bool = typer.Option(False, "--e", help="Somente patrimônio"),
     o: bool = typer.Option(False, "--o", help="Somente outras"),
 ) -> None:
     """Lista contas em uso no journal, com filtros por tipo e opção em árvore."""
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     transactions = load_ledger(ledger_path)
     all_accounts = extract_all_accounts(transactions)
 
@@ -106,7 +100,8 @@ def accounts(
         "ativos": [],
         "passivos": [],
         "despesas": [],
-        "receita": [],
+        "entradas": [],
+        "patrimônio": [],
         "outras": [],
     }
     for acc in all_accounts:
@@ -120,22 +115,23 @@ def accounts(
     if d:
         selected_types.append("despesas")
     if r:
-        selected_types.append("receita")
+        selected_types.append("entradas")
+    if e:
+        selected_types.append("patrimônio")
     if o:
         selected_types.append("outras")
     if not selected_types:
-        selected_types = ["ativos", "passivos", "despesas", "receita", "outras"]
+        selected_types = ["ativos", "passivos", "despesas", "entradas", "patrimônio", "outras"]
 
     if tree:
         for t in selected_types:
             accounts_list = by_type[t]
             if not accounts_list:
                 continue
-            display_name = t.capitalize()
             console.print(
                 Panel(
                     _build_account_tree(accounts_list),
-                    title=display_name,
+                    title=t.capitalize(),
                     title_align="left",
                 )
             )
@@ -145,9 +141,8 @@ def accounts(
         accounts_list = by_type[t]
         if not accounts_list:
             continue
-        display_name = t.capitalize()
         table = Table(
-            title=display_name,
+            title=t.capitalize(),
             title_justify="left",
             show_header=False,
             border_style="blue",
@@ -158,23 +153,36 @@ def accounts(
         console.print(table)
 
 
+def _ask_date(today_str: str) -> str | None:
+    """Pergunta a data ao usuário. Retorna string válida ou None para sair."""
+    from datetime import datetime
+    while True:
+        date_str = questionary.text("Data (YYYY-MM-DD):", default=today_str).ask()
+        if date_str is None or date_str.strip() == "<":
+            return None
+        date_str = date_str.strip()
+        try:
+            datetime.strptime(date_str, "%Y-%m-%d")
+            return date_str
+        except ValueError:
+            console.print(f"[red]Data inválida: {date_str} (use YYYY-MM-DD)[/red]")
+
+
 @app.command()
-def add(
-) -> None:
+def add() -> None:
     """Adiciona uma transação ao livro-razão via wizard interativo."""
     from datetime import date, datetime
     from decimal import Decimal, InvalidOperation
 
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     console.print("[green]Tudo certo, vamos começar.[/green]")
     console.print(
         "[dim]Dica: use '<' para voltar ao passo anterior ou cancelar quando indicado.[/dim]"
     )
     console.print(
-        "[dim]Dica: tags são palavras-chave livres, separadas por espaço ou vírgula (ex: familia brinquedos arthur).[/dim]"
+        "[dim]Dica: tags seguem o formato chave:valor (ex: veiculo:meteor, viagem:sp).[/dim]"
     )
 
-    # Checagem básica do journal antes de iniciar interação.
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -193,103 +201,44 @@ def add(
     all_accounts = extract_all_accounts(transactions)
 
     while True:
-        # Estado inicial/valores padrão para permitir "editar" a transação.
         today_str = date.today().isoformat()
-        dt: date | None = None
-        description: str | None = None
-        transaction_tags: list[str] = []
         postings_list: list[Posting] = []
         saldo = Decimal("0")
         is_first_posting = True
 
-        # --- Pergunta: Data ---
-        while dt is None:
-            date_str = questionary.text(
-                "Data (YYYY-MM-DD):",
-                default=today_str,
-            ).ask()
-            if date_str is None:
-                if Confirm.ask("Deseja sair sem salvar?", default=True):
-                    console.print("[yellow]Operação cancelada.[/yellow]")
-                    raise typer.Exit(0)
-                continue
-            date_str = date_str.strip()
-            if date_str == "<":
-                # Primeira pergunta: permite sair.
-                if Confirm.ask("Deseja sair sem salvar?", default=True):
-                    console.print("[yellow]Operação cancelada.[/yellow]")
-                    raise typer.Exit(0)
-                else:
-                    continue
-            try:
-                dt = datetime.strptime(date_str, "%Y-%m-%d").date()
-            except ValueError:
-                console.print(
-                    f"[red]Data inválida: {date_str} (use YYYY-MM-DD)[/red]"
-                )
-                dt = None
+        # --- Data ---
+        date_str = _ask_date(today_str)
+        if date_str is None:
+            if Confirm.ask("Deseja sair sem salvar?", default=True):
+                console.print("[yellow]Operação cancelada.[/yellow]")
+                raise typer.Exit(0)
+            continue
+        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
 
-        # --- Pergunta: Descrição ---
+        # --- Descrição ---
+        description: str | None = None
         while description is None:
-            desc_input = questionary.text(
-                "Descrição da transação:"
-            ).ask()
-            if desc_input is None:
-                if Confirm.ask("Deseja sair sem salvar?", default=True):
-                    console.print("[yellow]Operação cancelada.[/yellow]")
-                    raise typer.Exit(0)
+            desc_input = questionary.text("Descrição da transação:").ask()
+            if desc_input is None or desc_input.strip() == "<":
+                date_str = _ask_date(today_str)
+                if date_str is None:
+                    if Confirm.ask("Deseja sair sem salvar?", default=True):
+                        console.print("[yellow]Operação cancelada.[/yellow]")
+                        raise typer.Exit(0)
+                else:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d").date()
                 continue
             desc_input = desc_input.strip()
-            if desc_input == "<":
-                # Volta para a data.
-                dt = None
-                # volta ao loop da data
-                while dt is None:
-                    date_str = questionary.text(
-                        "Data (YYYY-MM-DD):",
-                        default=today_str,
-                    ).ask()
-                    if date_str is None:
-                        if Confirm.ask(
-                            "Deseja sair sem salvar?", default=True
-                        ):
-                            console.print(
-                                "[yellow]Operação cancelada.[/yellow]"
-                            )
-                            raise typer.Exit(0)
-                        continue
-                    date_str = date_str.strip()
-                    if date_str == "<":
-                        if Confirm.ask(
-                            "Deseja sair sem salvar?", default=True
-                        ):
-                            console.print(
-                                "[yellow]Operação cancelada.[/yellow]"
-                            )
-                            raise typer.Exit(0)
-                        else:
-                            continue
-                    try:
-                        dt = datetime.strptime(
-                            date_str, "%Y-%m-%d"
-                        ).date()
-                    except ValueError:
-                        console.print(
-                            f"[red]Data inválida: {date_str} (use YYYY-MM-DD)[/red]"
-                        )
-                        dt = None
-                # depois de voltar e corrigir data, pergunta descrição novamente
-                continue
-
             if not desc_input:
                 console.print("[red]Descrição não pode ser vazia.[/red]")
                 continue
             description = desc_input
 
-        # --- Pergunta: Tags da transação (opcional, uma vez) ---
+        # --- Tags da transação ---
+        transaction_tags: list[str] = []
         while True:
             tags_input = questionary.text(
-                "Tags da transação (opcional, separadas por espaço ou vírgula):",
+                "Tags da transação (opcional, separadas por espaço ou vírgula, formato chave:valor):",
             ).ask()
             if tags_input is None:
                 if Confirm.ask("Deseja sair sem salvar?", default=True):
@@ -298,36 +247,26 @@ def add(
                 continue
             tags_raw = tags_input.strip()
             if tags_raw == "<":
-                # Volta para a descrição.
                 description = None
                 break
-
-            transaction_tags = []
             if tags_raw:
                 import re
-
                 parts = re.split(r"[,\s]+", tags_raw)
                 transaction_tags = [p.strip() for p in parts if p.strip()]
             break
 
-        # Se descrição foi zerada por um backtracking nas tags, recomeça o fluxo.
         if description is None:
             continue
 
-        # Sugestões com base na descrição preenchida.
-        suggested_posting, suggested_amount = suggest_for_description(
-            transactions, description
-        )
+        # Sugestões com base na descrição.
+        suggested_posting, suggested_amount = suggest_for_description(transactions, description)
 
-        # --- Loop de lançamentos (postings) ---
+        # --- Loop de lançamentos ---
         while True:
             console.print(f"[blue]Saldo atual da transação: {saldo}[/blue]")
             if saldo != 0:
-                console.print(
-                    f"[yellow]Falta {(-saldo)} para zerar.[/yellow]"
-                )
+                console.print(f"[yellow]Falta {(-saldo)} para zerar.[/yellow]")
 
-            # Conta com autocomplete.
             default_account = ""
             if is_first_posting and suggested_posting is not None:
                 default_account = suggested_posting.account
@@ -339,47 +278,29 @@ def add(
                 default=default_account,
             ).ask()
             if account is None:
-                if Confirm.ask(
-                    "Cancelar esta transação?", default=True
-                ):
-                    console.print(
-                        "[yellow]Transação cancelada pelo usuário.[/yellow]"
-                    )
+                if Confirm.ask("Cancelar esta transação?", default=True):
+                    console.print("[yellow]Transação cancelada pelo usuário.[/yellow]")
                     raise typer.Exit(0)
-                # Se não cancelar, continua o loop.
                 continue
             account = account.strip()
             if account == "<":
-                # Volta para a descrição.
                 description = None
-                # Sai do loop de postings para voltar à descrição.
                 break
 
-            # Valor com sugestão.
             default_amount_str = ""
             if is_first_posting and suggested_amount is not None:
                 default_amount_str = str(suggested_amount)
             elif saldo != 0:
-                # Sugere o valor que fecharia a transação.
                 default_amount_str = str(-saldo)
 
-            amount_str = questionary.text(
-                "Valor:",
-                default=default_amount_str,
-            ).ask()
+            amount_str = questionary.text("Valor:", default=default_amount_str).ask()
             if amount_str is None:
-                if Confirm.ask(
-                    "Cancelar esta transação?", default=True
-                ):
-                    console.print(
-                        "[yellow]Transação cancelada pelo usuário.[/yellow]"
-                    )
+                if Confirm.ask("Cancelar esta transação?", default=True):
+                    console.print("[yellow]Transação cancelada pelo usuário.[/yellow]")
                     raise typer.Exit(0)
                 continue
-
             amount_str = amount_str.strip()
             if amount_str == "<":
-                # Volta para a conta (não altera saldo nem postings).
                 continue
 
             try:
@@ -389,13 +310,9 @@ def add(
                 continue
 
             try:
-                posting = Posting(
-                    account=account, amount=amount, tags=transaction_tags
-                )
+                posting = Posting(account=account, amount=amount, tags=transaction_tags)
             except Exception as e:
-                console.print(
-                    f"[red]Erro de validação no lançamento: {e}[/red]"
-                )
+                console.print(f"[red]Erro de validação no lançamento: {e}[/red]")
                 continue
 
             postings_list.append(posting)
@@ -406,20 +323,13 @@ def add(
                 console.print("[green]Saldo da transação zerado.[/green]")
                 break
 
-        # Se descrição foi zerada por um backtracking, recomeça o fluxo.
         if description is None:
             continue
 
-        # Validação final da transação com Pydantic.
         try:
-            t = Transaction(
-                date=dt, description=description, postings=postings_list
-            )
+            t = Transaction(date=dt, description=description, postings=postings_list)
         except Exception as e:
-            console.print(
-                f"[red]Erro de validação da transação: {e}[/red]"
-            )
-            # Volta ao início para permitir correção.
+            console.print(f"[red]Erro de validação da transação: {e}[/red]")
             continue
 
         # --- Resumo pré-gravação ---
@@ -436,35 +346,26 @@ def add(
 
         for p in t.postings:
             if p.amount > 0:
-                debito = str(p.amount)
-                credito = ""
+                debito, credito = str(p.amount), ""
             else:
-                debito = ""
-                credito = str(-p.amount)
-            tags_str = ", ".join(p.tags) if p.tags else ""
-            table.add_row(p.account, debito, credito, tags_str)
+                debito, credito = "", str(-p.amount)
+            table.add_row(p.account, debito, credito, ", ".join(p.tags) if p.tags else "")
 
-        panel = Panel(
+        console.print(Panel(
             table,
             title=f"[bold]{t.date} - {t.description}[/bold]",
             border_style="bright_blue",
             expand=False,
-        )
-        console.print(panel)
+        ))
 
-        transacao_persistida_ou_descartada = False
+        transacao_finalizada = False
 
-        if Confirm.ask(
-            "Deseja gravar esta transação no journal?", default=True
-        ):
+        if Confirm.ask("Deseja gravar esta transação no journal?", default=True):
             transactions.append(t)
             save_ledger(ledger_path, transactions)
-            console.print(
-                "[green]Transação adicionada com sucesso.[/green]"
-            )
-            transacao_persistida_ou_descartada = True
+            console.print("[green]Transação adicionada com sucesso.[/green]")
+            transacao_finalizada = True
         else:
-            # Usuário respondeu "não" na confirmação.
             action = questionary.select(
                 "O que deseja fazer?",
                 choices=[
@@ -477,25 +378,14 @@ def add(
             if action == "save":
                 transactions.append(t)
                 save_ledger(ledger_path, transactions)
-                console.print(
-                    "[green]Transação adicionada com sucesso.[/green]"
-                )
-                transacao_persistida_ou_descartada = True
+                console.print("[green]Transação adicionada com sucesso.[/green]")
+                transacao_finalizada = True
             elif action == "discard":
-                console.print(
-                    "[yellow]Transação descartada a pedido do usuário.[/yellow]"
-                )
-                transacao_persistida_ou_descartada = True
-            # action == "edit" -> recomeça o loop externo com a mesma base de histórico.
-            # Isso permite refazer data, descrição e postings; sugestões continuam funcionando.
-            # Loop externo continua sem marcar como finalizada.
+                console.print("[yellow]Transação descartada a pedido do usuário.[/yellow]")
+                transacao_finalizada = True
 
-        if transacao_persistida_ou_descartada:
-            # Pergunta se o usuário quer iniciar outra transação inteira.
-            if Confirm.ask(
-                "Deseja adicionar outra transação?", default=False
-            ):
-                # volta ao início do while True externo
+        if transacao_finalizada:
+            if Confirm.ask("Deseja adicionar outra transação?", default=False):
                 continue
             console.print("[green]Até a próxima![/green]")
             return
@@ -504,7 +394,7 @@ def add(
 @app.command()
 def balance() -> None:
     """Exibe o balanço por conta."""
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     transactions = load_ledger(ledger_path)
     report = balance_report(transactions)
 
@@ -521,7 +411,7 @@ def report(
     limit: int = typer.Option(20, "--limit", "-n", help="Número de transações"),
 ) -> None:
     """Lista as últimas transações."""
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     transactions = load_ledger(ledger_path)
     recent = transactions[-limit:]
 
@@ -530,12 +420,9 @@ def report(
     table.add_column("Descrição", style="cyan")
     table.add_column("Lançamentos", style="green")
     for t in reversed(recent):
-        postings_str = "; ".join(
-            f"{p.account} {p.amount}" for p in t.postings
-        )
+        postings_str = "; ".join(f"{p.account} {p.amount}" for p in t.postings)
         table.add_row(str(t.date), t.description, postings_str)
     console.print(table)
-
 
 
 @app.command()

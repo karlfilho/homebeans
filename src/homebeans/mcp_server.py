@@ -1,29 +1,24 @@
-import os
 from datetime import datetime
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
+from homebeans.config import get_ledger_path
 from homebeans.models import Posting, Transaction
 from homebeans.reports import balance_report, format_ascii_tree, generate_income_statement, generate_balance_sheet, generate_cashflow
 from homebeans.storage import load_ledger, save_ledger
-from core.suggester import extract_all_accounts
+from homebeans.suggester import extract_all_accounts
 
 load_dotenv()
 
 mcp = FastMCP("homebeans")
 
-def _get_ledger_path() -> Path:
-    path = os.getenv("LEDGER_PATH", "./data/ledger.yaml")
-    return Path(path)
-
 @mcp.tool()
 def get_balance() -> str:
     """Retorna o balanço financeiro atual agrupado por contas do aplicativo HomeBeans."""
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -60,7 +55,7 @@ def get_transactions(
         description_filter (str): Busca parcial na descrição da transação (case-insensitive).
         tag_filter (str): Filtra transações contendo uma tag que dê match nesta string (case-insensitive).
     """
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -173,7 +168,7 @@ def add_transaction(date_str: str, description: str, postings: list[dict[str, An
     except Exception as e:
         return f"Erro na validação da transação (partida dobrada etc): {e}"
 
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     # Cria diretório caso não exista
     ledger_path.parent.mkdir(parents=True, exist_ok=True)
     
@@ -192,7 +187,7 @@ def add_transaction(date_str: str, description: str, postings: list[dict[str, An
 @mcp.tool()
 def get_accounts_tree() -> str:
     """Retorna uma árvore ASCII hierárquica completa de todas as contas em uso no HomeBeans."""
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -210,7 +205,7 @@ def get_accounts_tree() -> str:
 @mcp.tool()
 def get_tags_list() -> str:
     """Retorna uma lista de todas as tags (chave:valor) atualmente em uso no HomeBeans, ordenadas de forma única."""
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -249,7 +244,7 @@ def delete_transaction(date_str: str, description: str) -> str:
     except ValueError:
         return "Erro: Data deve estar no formato YYYY-MM-DD."
 
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -259,20 +254,21 @@ def delete_transaction(date_str: str, description: str) -> str:
         return "Erro: Ledger está vazio."
 
     target_desc = description.strip().lower()
-    matching_idx = -1
-    
-    # Busca a primeira transação que casa com data e descrição
-    for i, t in enumerate(transactions):
-        if t.date == dt and t.description.strip().lower() == target_desc:
-            matching_idx = i
-            break
+    matching_indices = [
+        i for i, t in enumerate(transactions)
+        if t.date == dt and t.description.strip().lower() == target_desc
+    ]
 
-    if matching_idx == -1:
+    if not matching_indices:
         return f"Erro: Nenhuma transação encontrada no dia {date_str} com a descrição '{description}'."
 
-    deleted = transactions.pop(matching_idx)
+    duplicates_warning = ""
+    if len(matching_indices) > 1:
+        duplicates_warning = f" Atenção: havia {len(matching_indices)} transações com essa data e descrição; apenas a primeira foi removida."
+
+    deleted = transactions.pop(matching_indices[0])
     save_ledger(ledger_path, transactions)
-    return f"Transação '{deleted.description}' do dia {deleted.date} removida com sucesso."
+    return f"Transação '{deleted.description}' do dia {deleted.date} removida com sucesso.{duplicates_warning}"
 
 @mcp.tool()
 def edit_transaction(
@@ -304,7 +300,7 @@ def edit_transaction(
         except ValueError:
             return "Erro: A nova data deve estar no formato YYYY-MM-DD."
 
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -314,15 +310,19 @@ def edit_transaction(
         return "Erro: Ledger está vazio."
 
     target_desc = description.strip().lower()
-    matching_idx = -1
-    for i, t in enumerate(transactions):
-        if t.date == dt and t.description.strip().lower() == target_desc:
-            matching_idx = i
-            break
+    matching_indices = [
+        i for i, t in enumerate(transactions)
+        if t.date == dt and t.description.strip().lower() == target_desc
+    ]
 
-    if matching_idx == -1:
+    if not matching_indices:
         return f"Erro: Nenhuma transação encontrada na data {date_str} com a descrição '{description}'."
 
+    duplicates_warning = ""
+    if len(matching_indices) > 1:
+        duplicates_warning = f" Atenção: havia {len(matching_indices)} transações com essa data e descrição; apenas a primeira foi editada."
+
+    matching_idx = matching_indices[0]
     t_edit = transactions[matching_idx]
     
     final_desc = new_description if new_description else t_edit.description
@@ -352,7 +352,7 @@ def edit_transaction(
         return f"Erro de validação na nova transação (provavelmente o saldo não zera): {e}"
 
     save_ledger(ledger_path, transactions)
-    return f"Transação editada com sucesso! Atualizada para: {valid_t.date} - {valid_t.description}."
+    return f"Transação editada com sucesso! Atualizada para: {valid_t.date} - {valid_t.description}.{duplicates_warning}"
 
 
 @mcp.tool()
@@ -365,7 +365,7 @@ def clear_journal(confirmation: str) -> str:
     if confirmation != "CONFIRMO_LIMPEZA_TOTAL":
         return "Erro: Limpeza cancelada. Você deve passar a string exata 'CONFIRMO_LIMPEZA_TOTAL'."
         
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         _ = load_ledger(ledger_path)
     except Exception as e:
@@ -405,7 +405,7 @@ def get_income_statement(period: str = "month") -> str:
     Args:
         period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
     """
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -422,7 +422,7 @@ def get_balance_sheet(period: str = "month") -> str:
     Args:
         period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
     """
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:
@@ -438,7 +438,7 @@ def get_cashflow(period: str = "month") -> str:
     Args:
         period (str): Agrupamento de tempo. Opções: 'day', 'week', 'month', 'year', 'all'. (Padrão: 'month').
     """
-    ledger_path = _get_ledger_path()
+    ledger_path = get_ledger_path()
     try:
         transactions = load_ledger(ledger_path)
     except Exception as e:

@@ -55,14 +55,14 @@ def group_by_period(transactions: list[Transaction], period: str) -> dict[str, l
         elif period == "year":
             k = t.date.strftime("%Y")
         else:
-            k = "All"
+            k = "Todos"
         grouped[k].append(t)
     return dict(sorted(grouped.items()))
 
 def generate_income_statement(transactions: list[Transaction], period: str) -> str:
     """Gera um relatório textual de Entradas vs Despesas agrupado por período."""
     grouped = group_by_period(transactions, period)
-    output = ["=== INCOME STATEMENT (DRE) ==="]
+    output = ["=== DRE (Demonstração do Resultado do Exercício) ==="]
     
     for p_key, txs in grouped.items():
         bal = balance_by_account(txs)
@@ -89,12 +89,11 @@ def generate_income_statement(transactions: list[Transaction], period: str) -> s
 def generate_balance_sheet(transactions: list[Transaction], period: str) -> str:
     """Gera o Balanço Patrimonial (Ativos vs Passivos/Patrimônio). O Balanço Patrimonial é cumulativo no tempo."""
     grouped_keys = sorted(group_by_period(transactions, period).keys())
-    output = ["=== BALANCE SHEET (Balanço Patrimonial) ==="]
+    output = ["=== Balanço Patrimonial ==="]
     
     # Para balance sheet, somamos tudo até a data final do período
     cumulative_txs = []
     
-    # We must sort transactions chronologically first
     sorted_all = sorted(transactions, key=lambda t: t.date)
     grouped_all = group_by_period(sorted_all, period)
     
@@ -124,7 +123,7 @@ def generate_balance_sheet(transactions: list[Transaction], period: str) -> str:
 def generate_cashflow(transactions: list[Transaction], period: str) -> str:
     """Gera relatório de Fluxo de Caixa focado variação líquida de ATIVOS durante o período."""
     grouped = group_by_period(transactions, period)
-    output = ["=== CASHFLOW (Fluxo de Caixa) ==="]
+    output = ["=== Fluxo de Caixa ==="]
     
     for p_key, txs in grouped.items():
         bal = balance_by_account(txs)
