@@ -1,37 +1,85 @@
 # HomeBeans
 
-Sistema de contabilidade de **partida dobrada** em Python, inspirado no [hledger](https://hledger.org/). Persiste dados em YAML simples e se integra com qualquer assistente de IA que suporte o protocolo **MCP** — Claude, GPT, Gemini, e outros.
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-cli%20%2B%20mcp-4b5563)](#usando-com-um-assistente-de-ia-via-mcp)
+[![Tests](https://img.shields.io/badge/tests-91%20passing-success)](#testes)
 
-> **Novo no controle financeiro?** Veja a seção [Como funciona a partida dobrada](#como-funciona-a-partida-dobrada) antes de começar.
+Sistema de contabilidade de **partida dobrada** em Python, inspirado no [hledger](https://hledger.org/). Persiste dados em YAML simples e se integra com assistentes de IA via **MCP**.
 
----
+> Use pela CLI ou conecte ao Claude, GPT, Gemini, Cursor, Zed e outros clientes compatíveis com MCP.
+
+## Visão geral
+
+HomeBeans foi feito para quem quer controlar finanças pessoais com uma base mais confiável do que planilhas soltas, sem abrir mão de arquivos simples e legíveis.
+
+Ele combina:
+- **Partida dobrada**, com validação automática de lançamentos.
+- **YAML local**, fácil de ler, versionar e fazer backup.
+- **CLI interativa**, para registrar transações sem decorar comandos complexos.
+- **Servidor MCP**, para usar o ledger com assistentes de IA.
+- **Modo demo**, para explorar tudo sem tocar nos seus dados reais.
+
+## Quick Start
+
+### 1. Clonar e instalar
+
+```bash
+git clone https://github.com/karlfilho/homebeans.git
+cd homebeans
+uv sync
+```
+
+### 2. Testar o modo demo
+
+Quer conhecer o projeto sem risco? Entre no modo demo e explore dados fictícios:
+
+```bash
+uv run homebeans mcp
+```
+
+Depois, no seu cliente MCP, peça algo como:
+
+- `Ative o modo demonstração`
+- `Inicie o tutorial guiado`
+- `Mostre meu saldo atual`
+- `Liste as transações recentes`
+
+> O **modo demo** usa dados fictícios e preserva completamente o seu ledger real.
+
+### 3. Usar a CLI
+
+```bash
+uv run homebeans add
+uv run homebeans balance
+uv run homebeans report
+```
 
 ## Características
 
-- **Partida dobrada**: cada centavo tem origem e destino — o sistema valida isso automaticamente
-- **Dados em YAML**: arquivo de texto simples, legível, fácil de versionar e fazer backup
-- **Integração com IA via MCP**: converse com seu assistente favorito para registrar gastos, consultar saldos e gerar relatórios
-- **CLI interativa**: wizard guiado para adicionar transações sem digitar nenhum comando complexo
-- **Modo demonstração**: explore sem risco — dados fictícios, ledger real intocado
-- **Tutorial guiado**: a IA pode conduzir um tutorial prático direto no modo demo
-
----
+- **Partida dobrada**: cada centavo tem origem e destino, com validação automática.
+- **Dados em YAML**: arquivo simples, local e fácil de inspecionar.
+- **Integração com IA via MCP**: registre gastos, consulte saldos e gere relatórios por linguagem natural.
+- **CLI interativa**: wizard guiado para adicionar transações.
+- **Modo demonstração**: experimente sem risco.
+- **Tutorial guiado**: onboarding prático direto no modo demo.
 
 ## Pré-requisitos
 
 - Python 3.11+
-- [UV](https://docs.astral.sh/uv/) — gerenciador de dependências moderno para Python
+- [uv](https://docs.astral.sh/uv/)
 
-**Instalar o UV** (caso não tenha):
+### Instalar o uv
+
 ```bash
-# macOS / Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows (PowerShell)
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
----
+No Windows PowerShell:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
 
 ## Instalação
 
@@ -41,58 +89,64 @@ cd homebeans
 uv sync
 ```
 
-Crie seu arquivo de configuração (opcional):
+Crie seu arquivo de configuração, se quiser personalizar o caminho do ledger:
+
 ```bash
 cp .env.example .env
-# Edite .env se quiser salvar o ledger em outro caminho
 ```
-
----
 
 ## Como funciona a partida dobrada
 
-Partida dobrada é uma regra simples: **todo dinheiro que sai de algum lugar chega em algum lugar**. Cada transação tem pelo menos dois lançamentos cuja soma é sempre zero.
+Partida dobrada é uma regra simples: **todo dinheiro que sai de algum lugar chega em algum lugar**. Cada transação precisa ter pelo menos dois lançamentos cuja soma final seja zero.
 
-**Exemplo:** você comprou um café por R$ 10,00 em dinheiro.
-- O dinheiro **saiu** da sua carteira → `ativos:carteira: -10.00`
-- O gasto **entrou** em despesas → `despesas:alimentacao:cafe: +10.00`
-- Soma: `-10 + 10 = 0` ✓
+Exemplo: um café de R$ 10 pago em dinheiro.
 
-O HomeBeans usa 5 tipos de conta:
+- O dinheiro saiu da carteira → `ativos:carteira: -10.00`
+- O gasto entrou em despesas → `despesas:alimentacao:cafe: +10.00`
+
+Resultado:
+
+```text
+-10 + 10 = 0
+```
+
+### Tipos de conta
 
 | Tipo | Para quê | Exemplos |
-|------|----------|---------|
+|---|---|---|
 | `ativos` | O que você possui | carteira, banco, investimentos |
 | `passivos` | O que você deve | cartão de crédito, empréstimos |
-| `entradas` | De onde vem dinheiro | salário, freelance, aluguel recebido |
+| `entradas` | De onde vem dinheiro | salário, freelance, aluguel |
 | `despesas` | Para onde vai dinheiro | alimentação, moradia, transporte |
-| `patrimônio` | Capital inicial | saldo inicial das contas |
+| `patrimônio` | Capital inicial | saldo inicial |
 
-Contas usam hierarquia com `:` e aceitam até 3 níveis:
-```
-despesas:alimentacao:mercado   ✓  (3 níveis — OK)
-ativos:banco                   ✓  (2 níveis — OK)
-despesas:a:b:c                 ✗  (4 níveis — proibido, use uma tag)
-```
+### Hierarquia de contas
 
-Para detalhes extras, use **tags** no formato `chave:valor`:
-```
-tag: veiculo:gol
-tag: viagem:sp
-tag: fornecedor:claro
+As contas usam `:` como separador e aceitam até 3 níveis:
+
+```text
+despesas:alimentacao:mercado   ✓
+ativos:banco                   ✓
+despesas:a:b:c                 ✗
 ```
 
----
+Para detalhes extras, use tags:
+
+```text
+veiculo:gol
+viagem:sp
+fornecedor:claro
+```
 
 ## Usando a CLI
 
-### Adicionar uma transação (wizard interativo)
+### Adicionar uma transação
 
 ```bash
 uv run homebeans add
 ```
 
-O wizard fará perguntas passo a passo: data, descrição, contas e valores. Ele sugere automaticamente contas já usadas no histórico e valida se os lançamentos somam zero antes de salvar.
+O wizard pergunta data, descrição, contas e valores, sugere contas já usadas e valida o balanço antes de salvar.
 
 ### Ver saldo das contas
 
@@ -112,109 +166,107 @@ uv run homebeans report
 uv run homebeans accounts --tree
 ```
 
----
+## Usando com um assistente de IA via MCP
 
-## Usando com um assistente de IA (via MCP)
+O HomeBeans funciona como um **servidor MCP**, permitindo que assistentes de IA usem suas ferramentas diretamente.
 
-O HomeBeans funciona como um **servidor MCP** — um protocolo aberto que permite que assistentes de IA usem ferramentas externas. Funciona com qualquer cliente que suporte MCP (Claude Desktop, Cursor, Zed, Continue, etc.).
-
-### Iniciar o servidor MCP
+### Iniciar o servidor
 
 ```bash
 uv run homebeans mcp
 ```
 
-### Configurar no Claude Desktop
+### Exemplo de configuração no Claude Desktop
 
-Edite o arquivo de configuração do Claude Desktop:
-
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows:** `%APPDATA%\\Claude\\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "homebeans": {
       "command": "uv",
-      "args": ["run", "--directory", "/caminho/para/homebeans", "homebeans", "mcp"]
+      "args": [
+        "run",
+        "--directory",
+        "/caminho/para/homebeans",
+        "homebeans",
+        "mcp"
+      ]
     }
   }
 }
 ```
 
-Reinicie o Claude Desktop. A partir daí, você pode conversar naturalmente:
+Depois disso, você pode pedir coisas como:
 
-> *"Registra um almoço de R$ 45 que paguei com cartão de débito hoje"*
-> *"Qual foi meu gasto total com alimentação este mês?"*
-> *"Mostre o fluxo de caixa dos últimos 3 meses"*
+- “Registra um almoço de R$ 45 que paguei hoje.”
+- “Qual foi meu gasto com alimentação este mês?”
+- “Mostre o fluxo de caixa dos últimos 3 meses.”
 
-### Ferramentas disponíveis via MCP
+## Ferramentas MCP
 
 | Ferramenta | O que faz |
-|-----------|-----------|
+|---|---|
 | `get_balance` | Saldo atual de todas as contas |
-| `get_transactions` | Consulta com filtros de data, conta, tag e descrição |
+| `get_transactions` | Consulta com filtros |
 | `get_recent_transactions` | Últimas N transações |
-| `get_accounts_tree` | Árvore hierárquica de contas em uso |
-| `get_tags_list` | Todas as tags em uso |
-| `get_ledger_stats` | Estatísticas gerais do ledger |
-| `get_account_statement` | Extrato detalhado de uma conta com saldo acumulado |
-| `get_spending_summary` | Maiores gastos por categoria com percentuais |
-| `get_income_statement` | DRE: entradas vs despesas por período |
-| `get_balance_sheet` | Balanço patrimonial acumulativo |
-| `get_cashflow` | Variação líquida de ativos por período |
-| `add_transaction` | Registra nova transação validada |
-| `edit_transaction` | Edita transação existente |
+| `get_accounts_tree` | Árvore hierárquica |
+| `get_tags_list` | Tags em uso |
+| `get_ledger_stats` | Estatísticas gerais |
+| `get_account_statement` | Extrato com saldo acumulado |
+| `get_spending_summary` | Maiores gastos por categoria |
+| `get_income_statement` | Entradas vs despesas |
+| `get_balance_sheet` | Balanço patrimonial |
+| `get_cashflow` | Fluxo de caixa |
+| `add_transaction` | Adiciona transação |
+| `edit_transaction` | Edita transação |
 | `delete_transaction` | Remove transação |
-| `clear_journal` | Apaga tudo (requer confirmação explícita) |
-| `enter_demo_mode` | Ativa modo demo com dados fictícios |
-| `exit_demo_mode` | Encerra modo demo |
-| `start_demo_tutorial` | Inicia tutorial guiado no modo demo |
+| `clear_journal` | Apaga tudo com confirmação |
+| `enter_demo_mode` | Ativa modo demo |
+| `exit_demo_mode` | Sai do modo demo |
+| `start_demo_tutorial` | Inicia tutorial guiado |
 
-O parâmetro `period` dos relatórios aceita: `"day"`, `"week"`, `"month"`, `"year"`, `"all"`.
+O parâmetro `period` aceita: `day`, `week`, `month`, `year` e `all`.
 
----
+## Modo demonstração
 
-## Modo Demonstração
+Quer explorar sem tocar nos seus dados reais?
 
-Quer explorar o HomeBeans sem mexer nos seus dados reais? Peça ao assistente para ativar o modo demo:
+Peça ao assistente:
 
-> *"Ativa o modo demonstração"*
+- `Ative o modo demonstração`
+- `Inicie o tutorial guiado`
 
-O assistente vai perguntar se você quer um tutorial guiado. O tutorial explica a partida dobrada e propõe 3 exercícios práticos usando dados fictícios pré-carregados. Seu ledger pessoal permanece intocado durante toda a demonstração.
+O tutorial apresenta a lógica da partida dobrada e conduz exercícios práticos com dados fictícios.
 
-Para encerrar:
-> *"Sai do modo demo"*
+Para sair:
 
----
+- `Saia do modo demo`
 
 ## Estrutura do projeto
 
-```
+```text
 src/homebeans/
-├── config.py       # Resolução do caminho do ledger ativo (real ou demo)
-├── models.py       # Pydantic: Posting, Transaction + todas as validações
-├── storage.py      # Leitura/escrita do ledger.yaml (Ruamel.YAML)
-├── mcp_server.py   # Servidor FastMCP com 18 tools + 1 prompt
-├── cli.py          # Comandos Typer: add, balance, report, accounts, journal-clear, mcp
-├── reports.py      # DRE, Balanço Patrimonial, Fluxo de Caixa, extrato, estatísticas
-└── demo_mode.py    # Gerenciamento do modo demonstração
+├── config.py
+├── models.py
+├── storage.py
+├── mcp_server.py
+├── cli.py
+├── reports.py
+└── demo_mode.py
 
 src/core/
-└── suggester.py    # Sugestões por fuzzy matching + extração de contas do histórico
+└── suggester.py
 
 data/
-├── ledger.yaml                  # Seu ledger (ignorado pelo git — seus dados ficam locais)
-└── demo_ledger_template.yaml    # Dados fictícios para o modo demo
+├── ledger.yaml
+└── demo_ledger_template.yaml
 ```
 
----
+## Privacidade
 
-## Seus dados ficam no seu computador
-
-O arquivo `data/ledger.yaml` está listado no `.gitignore` — ele **nunca sobe para o GitHub**. Seus dados financeiros ficam exclusivamente na sua máquina.
-
----
+O arquivo `data/ledger.yaml` fica local e está no `.gitignore`. Seus dados financeiros não sobem para o GitHub.
 
 ## Testes
 
@@ -222,9 +274,15 @@ O arquivo `data/ledger.yaml` está listado no `.gitignore` — ele **nunca sobe 
 uv run pytest tests/ -v
 ```
 
-91 testes cobrindo modelos, partida dobrada, modo demo, ferramentas MCP e relatórios.
+Atualmente o projeto tem **91 testes** cobrindo modelos, partida dobrada, modo demo, ferramentas MCP e relatórios.
 
----
+## Contribuindo
+
+Contribuições são bem-vindas. Veja o arquivo [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes de ambiente, fluxo de branches e padrão de PR.
+
+## Changelog
+
+O histórico de mudanças está em [CHANGELOG.md](CHANGELOG.md).
 
 ## Licença
 
