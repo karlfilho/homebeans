@@ -613,11 +613,109 @@ def enter_demo_mode() -> str:
     if result != "ok":
         return result
     return (
-        "Modo de demonstração ativado!\n"
+        "Modo de demonstração ativado com sucesso!\n"
         "- Todas as operações agora usam um ledger fictício de exemplo.\n"
-        "- Seu ledger pessoal esta protegido e nao sera modificado.\n"
-        "- Use exit_demo_mode() ao final para encerrar a demonstracao."
+        "- Seu ledger pessoal está protegido e não será modificado.\n"
+        "- Use exit_demo_mode() ao final para encerrar a demonstração.\n\n"
+        "[INSTRUÇÃO PARA O ASSISTENTE] Pergunte ao usuário, de forma amigável e breve, "
+        "se ele gostaria de um tutorial guiado sobre o HomeBeans. "
+        "Se ele aceitar, chame start_demo_tutorial() para obter o roteiro completo."
     )
+
+
+@mcp.tool()
+def start_demo_tutorial() -> str:
+    """
+    Retorna o roteiro do tutorial guiado do HomeBeans para ser apresentado pelo assistente.
+
+    O assistente deve conduzir o usuário pelos exercícios um de cada vez,
+    aguardando confirmação antes de avançar para o próximo.
+    """
+    return """
+=== ROTEIRO DO TUTORIAL HOMEBEANS ===
+
+[INSTRUÇÃO PARA O ASSISTENTE]
+Apresente as seções abaixo ao usuário de forma conversacional. Conduza um exercício
+por vez, execute as ferramentas necessárias para demonstrar cada passo, e aguarde
+o usuário confirmar antes de avançar. Seja conciso — o tutorial inteiro deve durar
+menos de 5 minutos.
+
+---
+
+## TEORIA RÁPIDA (apresente isso primeiro, em no máximo 5 pontos curtos)
+
+1. **Partida dupla**: toda transação tem pelo menos dois lançamentos (postings) cuja
+   soma deve ser exatamente zero. Ex: paguei R$ 100 → +100 em despesas, -100 em ativos.
+
+2. **5 raízes de contas** (únicas permitidas):
+   - `ativos` — o que você possui (dinheiro, banco, investimentos)
+   - `passivos` — o que você deve (cartão, empréstimos)
+   - `entradas` — suas receitas (salário, freelance)
+   - `despesas` — seus gastos (alimentação, moradia, transporte)
+   - `patrimônio` — patrimônio líquido inicial
+
+3. **Sinais**: débitos (+) aumentam ativos e despesas; créditos (-) aumentam passivos
+   e entradas. Simples: gasto = positivo em despesas + negativo em ativos.
+
+4. **Contas em até 3 níveis**: `despesas:alimentacao:mercado` ✓
+   Quarto nível é proibido — use tags para mais detalhes: `veiculo:meteor`.
+
+5. **Tags no formato chave:valor**: `viagem:sp`, `fornecedor:claro`, `tipo:fixo`.
+
+---
+
+## EXERCÍCIO 1 — Conhecendo o ledger demo
+
+**Objetivo**: ver o estado atual das contas fictícias.
+
+Chame get_balance() e get_ledger_stats(), depois explique brevemente o que o usuário está vendo:
+quantas contas existem, o saldo geral, o período coberto.
+
+Após apresentar, pergunte: "Quer continuar para o Exercício 2?"
+
+---
+
+## EXERCÍCIO 2 — Registrando uma despesa
+
+**Objetivo**: adicionar uma transação do zero.
+
+Proponha o seguinte cenário ao usuário:
+"Vamos registrar um jantar de R$ 85,00 pago com dinheiro em espécie hoje."
+
+Explique sua lógica antes de executar:
+- Débito de +85.00 em `despesas:alimentacao:restaurante`
+- Crédito de -85.00 em `ativos:carteira`
+- Tag sugerida: `tipo:lazer`
+
+Execute add_transaction() com a data de hoje (2026-03-27) e mostre o resultado.
+
+Após o sucesso, pergunte: "Quer continuar para o Exercício 3?"
+
+---
+
+## EXERCÍCIO 3 — Analisando os resultados
+
+**Objetivo**: consultar relatórios para entender o impacto da transação.
+
+Execute get_income_statement(period="month") e destaque:
+- Total de despesas do mês
+- Total de entradas
+- Resultado líquido (lucro ou déficit)
+
+Em seguida, explique como o exercício 2 alterou o saldo de `ativos:carteira`
+chamando get_account_statement(account="ativos:carteira").
+
+---
+
+## ENCERRAMENTO
+
+Após o Exercício 3, diga ao usuário:
+"Tutorial concluído! Você aprendeu a consultar saldos, registrar transações e analisar
+relatórios. O ledger demo pode ser explorado livremente — nada afeta seus dados reais.
+Quando quiser sair, é só pedir exit_demo_mode()."
+
+Ofereça também responder dúvidas ou propor exercícios adicionais se o usuário quiser.
+"""
 
 
 @mcp.tool()

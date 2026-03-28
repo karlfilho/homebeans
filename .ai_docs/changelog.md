@@ -1,3 +1,15 @@
+- **[2026-03-27] Tutorial guiado no modo demo (`start_demo_tutorial`)**
+  - Adicionada tool MCP `start_demo_tutorial()` que retorna um roteiro completo para o assistente conduzir o usuário pelo HomeBeans.
+  - Roteiro inclui: teoria rápida de partida dupla (5 pontos), 3 exercícios práticos usando o ledger demo, e encerramento.
+  - `enter_demo_mode()` agora instrui explicitamente o assistente (via texto no retorno) a perguntar se o usuário quer o tutorial antes de prosseguir.
+  - Exercícios cobrem: consulta de saldo/estatísticas, registro de despesa, análise de DRE e extrato de conta.
+
+- **[2026-03-27] Ferramentas estatísticas MCP**
+  - `get_ledger_stats()`: estatísticas gerais do ledger (total de transações, período, contas/tags distintas, média mensal).
+  - `get_account_statement(account, start_date, end_date)`: extrato detalhado de uma conta com saldo acumulado linha a linha.
+  - `get_spending_summary(period, start_date, end_date, top_n)`: maiores gastos por categoria de despesa com valor e percentual.
+  - `get_recent_transactions(limit, account_filter, tag_filter)`: últimas N transações com filtros opcionais, sem precisar de filtro de data.
+
 - **[2026-03-27] Modo de demonstração (`enter_demo_mode` / `exit_demo_mode`)**
   - Adicionado `src/homebeans/demo_mode.py` com estado em memória (`_demo_active`) e funções `enter_demo()` / `exit_demo()` / `is_demo_active()`.
   - `enter_demo()` copia `data/demo_ledger_template.yaml` para `data/demo_ledger.yaml` (arquivo de trabalho) e ativa o redirecionamento.

@@ -9,7 +9,6 @@ Sistema de contabilidade de partida dobrada em Python, inspirado no hledger. Per
 - **Ruamel.YAML** — serialização (preserva comentários)
 - **FastMCP** — servidor MCP via stdio
 - **Typer + Rich** — CLI interativa
-- **Plotly** — exportação de gráficos HTML
 - **Questionary** — wizard interativo no CLI
 - **thefuzz** — fuzzy matching para sugestões de contas
 
@@ -17,19 +16,26 @@ Sistema de contabilidade de partida dobrada em Python, inspirado no hledger. Per
 
 ```
 src/homebeans/
+├── config.py       # Resolução do caminho do ledger ativo (real ou demo)
 ├── models.py       # Pydantic: Posting, Transaction + todas as validações
 ├── storage.py      # Leitura/escrita do ledger.yaml (Ruamel.YAML)
-├── mcp_server.py   # Servidor FastMCP com 12 tools + 1 prompt
-├── cli.py          # Comandos Typer: add, balance, report, chart, accounts, journal-clear, mcp
-├── reports.py      # DRE, Balanço Patrimonial, Fluxo de Caixa, árvore ASCII
-└── viz.py          # Gráfico de barras Plotly exportado em HTML
+├── mcp_server.py   # Servidor FastMCP com 18 tools + 1 prompt
+├── cli.py          # Comandos Typer: add, balance, report, accounts, journal-clear, mcp
+├── reports.py      # DRE, Balanço Patrimonial, Fluxo de Caixa, extrato, estatísticas
+└── demo_mode.py    # Gerenciamento do modo demonstração em memória
 
 src/core/
 └── suggester.py    # Sugestões por fuzzy matching + extração de contas do histórico
 
 tests/
-├── test_models.py      # Validação dos modelos Pydantic
-└── test_integrity.py   # Integridade da partida dobrada
+├── test_models.py              # Validação dos modelos Pydantic
+├── test_integrity.py           # Integridade da partida dobrada
+├── test_demo_mode.py           # Ativação/desativação e isolamento do modo demo
+├── test_statistical_tools.py   # Ferramentas get_ledger_stats, get_account_statement, etc.
+├── test_get_balance.py         # Ferramenta get_balance
+├── test_get_recent_transactions.py
+├── test_report_date_filters.py # Filtros de data nos relatórios
+└── test_transaction_id.py      # Persistência de UUID nas transações
 ```
 
 ## Dados
@@ -82,20 +88,24 @@ transactions:
 
 | Tool | Descrição |
 |---|---|
-| `get_balance()` | Saldo atual agrupado por conta |
+| `get_balance(account_filter?)` | Saldo atual agrupado por conta |
 | `get_transactions(limit, start_date, end_date, account_filter, description_filter, tag_filter)` | Consulta com filtros avançados |
+| `get_recent_transactions(limit, account_filter?, tag_filter?)` | Últimas N transações |
+| `get_ledger_stats()` | Estatísticas gerais: total de transações, período, contas e tags distintas |
+| `get_account_statement(account, start_date?, end_date?)` | Extrato com saldo acumulado linha a linha |
+| `get_spending_summary(period, start_date?, end_date?, top_n)` | Maiores gastos por categoria com percentuais |
 | `add_transaction(date_str, description, postings)` | Adiciona transação validada |
-| `edit_transaction(date_str, description, new_date_str?, new_description?, new_postings?)` | Edição parcial de transação |
-| `delete_transaction(date_str, description)` | Remove transação por data + descrição |
+| `edit_transaction(transaction_id?, date_str?, description?, new_date_str?, new_description?, new_postings?)` | Edição parcial — localiza por ID (preferido) ou data+descrição |
+| `delete_transaction(transaction_id?, date_str?, description?)` | Remove — localiza por ID (preferido) ou data+descrição |
 | `get_accounts_tree()` | Árvore ASCII de todas as contas em uso |
 | `get_tags_list()` | Lista única de todas as tags em uso |
-| `get_income_statement(period)` | DRE: entradas vs despesas por período |
-| `get_balance_sheet(period)` | Balanço patrimonial acumulativo |
-| `get_cashflow(period)` | Variação líquida de ativos por período |
-| `generate_html_report(output_filename)` | Exporta gráfico Plotly em HTML |
+| `get_income_statement(period, start_date?, end_date?)` | DRE: entradas vs despesas por período |
+| `get_balance_sheet(period, start_date?, end_date?)` | Balanço patrimonial acumulativo |
+| `get_cashflow(period, start_date?, end_date?)` | Variação líquida de ativos por período |
 | `clear_journal(confirmation)` | Apaga tudo — requer `"CONFIRMO_LIMPEZA_TOTAL"` |
 | `enter_demo_mode()` | Ativa modo demo: redireciona para ledger fictício pré-carregado |
 | `exit_demo_mode()` | Encerra modo demo e descarta o ledger fictício |
+| `start_demo_tutorial()` | Retorna roteiro completo para tutorial guiado no modo demo |
 
 Parâmetro `period` aceita: `"day"`, `"week"`, `"month"`, `"year"`, `"all"` (padrão: `"month"`).
 
@@ -106,7 +116,6 @@ uv run homebeans add             # wizard interativo
 uv run homebeans balance         # tabela de saldos
 uv run homebeans report          # últimas 20 transações
 uv run homebeans accounts --tree # árvore de contas
-uv run homebeans chart           # gráfico HTML
 uv run homebeans mcp             # inicia servidor MCP via stdio
 ```
 
