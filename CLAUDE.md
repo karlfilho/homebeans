@@ -132,3 +132,16 @@ Copie `.env.example` para `.env` se quiser customizar `LEDGER_PATH`.
 
 - `.ai_docs/structure.md` — estrutura do projeto
 - `.ai_docs/changelog.md` — histórico de features
+
+## Manutenção de documentação — OBRIGATÓRIO
+
+Ao final de qualquer sessão em que houver mudanças no projeto, o assistente **deve** atualizar os seguintes arquivos antes de encerrar:
+
+| Arquivo | Atualizar quando |
+|---------|-----------------|
+| `.ai_docs/changelog.md` | Qualquer nova feature, bugfix ou refatoração |
+| `.ai_docs/structure.md` | Arquivos criados, removidos ou com responsabilidade alterada |
+| `CLAUDE.md` | Novas tools MCP, comandos CLI, regras de negócio ou dependências |
+| `CHANGELOG.md` | A cada nova versão publicada (seguir formato Keep a Changelog) |
+
+Nunca encerre uma sessão com documentação desatualizada.
